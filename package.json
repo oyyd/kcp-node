@@ -1,0 +1,40 @@
+{
+  "name": "kcp-node",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "babel src --out-dir lib",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oyyd/kcp-node.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/oyyd/kcp-node/issues"
+  },
+  "homepage": "https://github.com/oyyd/kcp-node#readme",
+  "devDependencies": {
+    "babel-cli": "^6.24.1",
+    "babel-preset-es2015": "^6.24.1",
+    "eslint": "^3.19.0",
+    "eslint-config-airbnb-base": "^11.2.0",
+    "eslint-plugin-import": "^2.7.0",
+    "jest": "^20.0.4"
+  },
+  "babel": {
+    "presets": [
+      "es2015"
+    ]
+  },
+  "eslintConfig": {
+    "extends": "airbnb-base",
+    "rules": {
+      "semi": [2, "never"],
+      "import/prefer-default-export": 0
+    }
+  }
+}
