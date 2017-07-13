@@ -4,13 +4,46 @@ import {
   IKCP_CMD_ACK,
   IKCP_CMD_WASK,
   IKCP_CMD_WINS,
+  IKCP_RTO_MAX,
 } from './create'
 
-function ack() {
+export function updateAck(kcp, rtt) {
+  let rto = 0
 
+  // no value set
+  if (kcp.rx_srtt === 0) {
+    kcp.rx_srtt = rtt
+    kcp.rx_rttval = rtt / 2
+  } else {
+    const delta = Math.abs(rtt - kcp.rx_srtt)
+
+    kcp.rx_rttval = (3 * kcp.rx_rttval + delta) / 4
+    kcp.rx_srtt = (7 * kcp.rx_srtt + rtt) / 8
+
+    if (kcp.rx_srtt < 1) {
+      kcp.rx_srtt = 1
+    }
+  }
+
+  rto = kcp.rx_srtt + Math.max(kcp.interval, kcp.rx_rttval * 4)
+  kcp.rx_rto = Math.max(Math.min(kcp.rx_minrto, rto), IKCP_RTO_MAX)
 }
 
-function input(kcp, buffer) {
+function ack(kcp, ts) {
+  const delta = kcp.current - ts
+
+  if (delta >= 0) {
+    updateAck(kcp, delta)
+  }
+}
+
+/**
+ * @private
+ * @param  {[type]} kcp    [description]
+ * @param  {[type]} buffer [description]
+ * @return {[type]}        [description]
+ */
+export function input(kcp, buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < IKCP_OVERHEAD) {
     return -1
   }
