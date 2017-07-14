@@ -1,7 +1,7 @@
 const IKCP_RTO_NDL = 30
 const IKCP_RTO_MIN = 100
 const IKCP_RTO_DEF = 200
-const IKCP_RTO_MAX = 60000
+export const IKCP_RTO_MAX = 60000
 const IKCP_ASK_SEND = 1
 const IKCP_ASK_TELL = 2
 const IKCP_WND_SND = 32
@@ -21,9 +21,10 @@ export const IKCP_CMD_ACK = 82
 export const IKCP_CMD_WASK = 83
 export const IKCP_CMD_WINS = 84
 
-const DEFAULT_KCPCB = {
-  // conv: null,
-  // user: null,
+// @private
+export const DEFAULT_KCPCB = {
+  conv: null,
+  user: null,
   snd_una: 0,
   snd_nxt: 0,
   rcv_nxt: 0,

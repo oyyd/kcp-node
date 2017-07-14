@@ -7,6 +7,33 @@ import {
   IKCP_RTO_MAX,
 } from './create'
 
+export function parseUna(kcp, una) {
+  const length = kcp.snd_buf.length
+  let i = 0
+
+  for (i = 0; i < length; i += 1) {
+    if (kcp.snd_buf[i].sn >= una) {
+      break
+    }
+  }
+
+  if (i !== 0) {
+    kcp.snd_buf = kcp.snd_buf.slice(i)
+  }
+}
+
+export function shrinkBuf(kcp) {
+  if (kcp.snd_buf.length > 0) {
+    kcp.snd_una = kcp.snd_buf[0].sn
+  } else {
+    // TODO: what's snd_nxt
+    kcp.snd_una = kcp.snd_nxt
+  }
+}
+
+// NOTE: I'm confused with how the tcp calculates a new rto.
+// TODO: check the rfc
+// @private
 export function updateAck(kcp, rtt) {
   let rto = 0
 
@@ -25,30 +52,45 @@ export function updateAck(kcp, rtt) {
     }
   }
 
+  // `rx_rto` must be smaller than the `interval`
   rto = kcp.rx_srtt + Math.max(kcp.interval, kcp.rx_rttval * 4)
-  kcp.rx_rto = Math.max(Math.min(kcp.rx_minrto, rto), IKCP_RTO_MAX)
+  kcp.rx_rto = Math.min(Math.max(kcp.rx_minrto, rto), IKCP_RTO_MAX)
 }
 
-function ack(kcp, ts) {
-  const delta = kcp.current - ts
+// @private
+export function parseAck(kcp, sn) {
+  if (sn < kcp.snd_una || sn >= kcp.snd_nxt) {
+    return
+  }
 
-  if (delta >= 0) {
-    updateAck(kcp, delta)
+  const { length } = kcp.snd_buf
+  let cur = 0
+
+  for (; cur !== length; cur += 1) {
+    // NOTE: it's better to use link tables instead of arraies
+    const seg = kcp.snd_buf[cur]
+
+    if (sn === seg.sn) {
+      kcp.snd_buf.splice(cur, 1)
+      kcp.nsnd_buf -= 1
+      break
+    }
+
+    if (sn < seg.sn) {
+      break
+    }
   }
 }
 
-/**
- * @private
- * @param  {[type]} kcp    [description]
- * @param  {[type]} buffer [description]
- * @return {[type]}        [description]
- */
+// @private
 export function input(kcp, buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < IKCP_OVERHEAD) {
     return -1
   }
 
   let offset = 0
+  let flag = 0
+  let maxack = 0
 
   while (offset < buffer.length) {
     if (buffer.length - offset < IKCP_OVERHEAD) {
@@ -69,13 +111,35 @@ export function input(kcp, buffer) {
     const una = buffer.readUInt32BE(0, 16)
     const len = buffer.readUInt32BE(0, 20)
 
+    if (buffer.length - IKCP_OVERHEAD < len) {
+      return -2
+    }
+
     if (cmd !== IKCP_CMD_WINS && cmd !== IKCP_CMD_WASK
       && cmd !== IKCP_CMD_ACK && cmd !== IKCP_CMD_PUSH) {
       return -3
     }
 
+    kcp.rmt_wnd = wnd
+    parseUna(kcp, una)
+    shrinkBuf(kcp)
+
     if (cmd === IKCP_CMD_ACK) {
-      ack(kcp)
+      const delta = kcp.current - ts
+
+      if (delta >= 0) {
+        updateAck(kcp, delta)
+      }
+
+      parseAck(kcp, sn)
+      shrinkBuf(kcp)
+
+      if (flag === 0) {
+        flag = 1
+        maxack = sn
+      } else if (sn > maxack) {
+        maxack = sn
+      }
     }
   }
 }
