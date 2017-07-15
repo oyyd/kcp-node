@@ -5,6 +5,8 @@ import {
   IKCP_CMD_WASK,
   IKCP_CMD_WINS,
   IKCP_RTO_MAX,
+  IKCP_ASK_TELL,
+  createSegment,
 } from './create'
 
 export function parseUna(kcp, una) {
@@ -82,41 +84,119 @@ export function parseAck(kcp, sn) {
   }
 }
 
+// TODO: make sure the usage of acklist is correct
+// @private
+export function ackPush(kcp, sn, ts) {
+  const newsize = kcp.ackcount + 1
+  let newblock = 1
+
+  if (newsize > kcp.ackblock) {
+    for (; newblock < newsize; newblock *= 2);
+
+    kcp.ackblock = newblock
+  }
+
+  kcp.acklist[kcp.ackcount * 2] = sn
+  kcp.acklist[kcp.ackcount * 2 + 1] = ts
+  kcp.ackcount = newsize
+}
+
+// @private
+export function parseData(kcp, newseg) {
+  const sn = newseg.sn
+  let repeat = 0
+
+  if (sn >= kcp.rcv_nxt + kcp.rcv_wnd || sn < kcp.rcv_nxt) {
+    return
+  }
+
+  let i = kcp.rcv_buf.length - 1
+
+  for (; i >= 0; i -= 1) {
+    const seg = kcp.rcv_buf[i]
+
+    if (seg.sn === sn) {
+      repeat = 1
+      break
+    }
+
+    if (sn > seg.sn) {
+      break
+    }
+  }
+
+  if (repeat === 0) {
+    kcp.rcv_buf.splice(i + 1, 0, newseg)
+    kcp.nrcv_buf += 1
+  }
+
+  const { length } = kcp.rcv_buf
+
+  // NOTE: push values from the `rcv_buf` into the `rcv_queue`
+  for (i = 0; i < length; i += 1) {
+    const seg = kcp.rcv_buf[i]
+
+    if (!(seg.sn === kcp.rcv_nxt + i && kcp.nrcv_que + i < kcp.rcv_wnd)) {
+      break
+    }
+  }
+
+  const trans = kcp.rcv_buf.splice(0, i)
+  kcp.nrcv_buf -= i
+  kcp.rcv_queue = kcp.rcv_queue.concat(trans)
+  kcp.nrcv_que += i
+  kcp.rcv_nxt += i
+}
+
+// @private
+export function parseFastack(kcp, maxack) {
+
+}
+
 // @private
 export function input(kcp, buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < IKCP_OVERHEAD) {
     return -1
   }
 
+  // TODO: test the size and the offset
+  let size = buffer.length
   let offset = 0
   let flag = 0
   let maxack = 0
 
-  while (offset < buffer.length) {
-    if (buffer.length - offset < IKCP_OVERHEAD) {
+  while (offset < size) {
+    if (size - offset < IKCP_OVERHEAD) {
       break
     }
 
-    const conv = buffer.readUInt32BE(0)
+    const conv = buffer.readUInt32BE(offset)
 
     if (conv !== kcp.conv) {
       return -1
     }
 
-    const cmd = buffer.readUInt8BE(0, 4)
-    const frg = buffer.readUInt8BE(0, 5)
-    const wnd = buffer.readUInt16BE(0, 6)
-    const ts = buffer.readUInt32BE(0, 8)
-    const sn = buffer.readUInt32BE(0, 12)
-    const una = buffer.readUInt32BE(0, 16)
-    const len = buffer.readUInt32BE(0, 20)
+    const cmd = buffer.readUInt8BE(offset, 4)
+    const frg = buffer.readUInt8BE(offset, 5)
+    const wnd = buffer.readUInt16BE(offset, 6)
+    const ts = buffer.readUInt32BE(offset, 8)
+    const sn = buffer.readUInt32BE(offset, 12)
+    const una = buffer.readUInt32BE(offset, 16)
+    const len = buffer.readUInt32BE(offset, 20)
 
-    if (buffer.length - IKCP_OVERHEAD < len) {
+    size -= IKCP_OVERHEAD
+    offset += IKCP_OVERHEAD
+
+    if (size < len) {
       return -2
     }
 
-    if (cmd !== IKCP_CMD_WINS && cmd !== IKCP_CMD_WASK
-      && cmd !== IKCP_CMD_ACK && cmd !== IKCP_CMD_PUSH) {
+    if (
+      cmd !== IKCP_CMD_WINS &&
+      cmd !== IKCP_CMD_WASK &&
+      cmd !== IKCP_CMD_ACK &&
+      cmd !== IKCP_CMD_PUSH
+    ) {
       return -3
     }
 
@@ -140,6 +220,42 @@ export function input(kcp, buffer) {
       } else if (sn > maxack) {
         maxack = sn
       }
+    } else if (cmd === IKCP_CMD_PUSH) {
+      if (sn < kcp.rcv_nxt + kcp.rcv_wnd) {
+        ackPush(kcp, sn, ts)
+
+        if (sn >= kcp.rcv_nxt) {
+          const seg = createSegment()
+          seg.conv = conv
+          seg.cmd = cmd
+          seg.frg = frg
+          seg.wnd = wnd
+          seg.ts = ts
+          seg.sn = sn
+          seg.una = una
+          seg.len = len
+
+          // TODO: check
+          if (size > IKCP_OVERHEAD) {
+            seg.data = buffer.slice(offset + IKCP_OVERHEAD, offset + IKCP_OVERHEAD + len)
+          }
+
+          parseData(kcp, seg)
+        }
+      }
+    } else if (cmd === IKCP_CMD_WASK) {
+      kcp.probe |= IKCP_ASK_TELL
+    } else if (cmd === IKCP_CMD_WINS) {
+      // do nothing and leave it to the flush
+    } else {
+      return -3
     }
+
+    size -= len
+    offset += len
+  }
+
+  if (flag !== 0) {
+    parseFastack(kcp, maxack)
   }
 }

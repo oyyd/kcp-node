@@ -1,6 +1,6 @@
-import { IKCP_RTO_MAX } from '../create'
+import { IKCP_RTO_MAX, createSegment } from '../create'
 import { createTestKCP } from './utils'
-import { updateAck, parseAck, parseUna, shrinkBuf } from '../input'
+import { updateAck, parseAck, parseUna, shrinkBuf, ackPush, parseData } from '../input'
 
 describe('input.js', () => {
   let kcpcb = null
@@ -81,10 +81,86 @@ describe('input.js', () => {
       expect(kcpcb.snd_una).toBe(1)
     })
 
-    it('should', () => {
+    it('should take `snd_nxt` as the `snd_una` when the `snd_buf` is empty', () => {
       kcpcb.snd_buf = []
       shrinkBuf(kcpcb)
       expect(kcpcb.snd_una).toBe(kcpcb.snd_nxt)
+    })
+  })
+
+  describe('ackPush', () => {
+    beforeEach(() => {
+      kcpcb.acklist = []
+      kcpcb.ackblock = 0
+    })
+
+    // TODO:
+    it('should set `sn` and `ts` to the tree of `acklist`', () => {
+      const sn = 10
+      const ts = Date.now()
+      ackPush(kcpcb, sn, ts)
+
+      expect(kcpcb.acklist).toEqual([sn, ts])
+      expect(kcpcb.ackblock).toEqual(1)
+      expect(kcpcb.ackcount).toEqual(1)
+    })
+  })
+
+  describe('parseData', () => {
+    it('should push the new segment to the `rcv_queue`', () => {
+      kcpcb.rcv_buf = [{
+        sn: 4,
+      }, {
+        sn: 5,
+      }, {
+        sn: 6,
+      }]
+
+      kcpcb.rcv_nxt = 3
+      kcpcb.rcv_wnd = 5
+
+      kcpcb.rcv_queue = [{
+        sn: 1,
+      }, {
+        sn: 2,
+      }]
+      kcpcb.nrcv_que = 2
+
+      const seg = createSegment()
+      seg.sn = 3
+
+      parseData(kcpcb, seg)
+
+      expect(kcpcb.rcv_nxt).toBe(6)
+      expect(kcpcb.rcv_buf.map(item => item.sn)).toEqual([6])
+      expect(kcpcb.rcv_queue.map(item => item.sn)).toEqual([1, 2, 3, 4, 5])
+    })
+
+    it('should not push segments to the `rcv_queue` if the `sn` is not equal to the `rcv_nxt` ', () => {
+      kcpcb.rcv_buf = [{
+        sn: 5,
+      }, {
+        sn: 6,
+      }]
+
+      kcpcb.rcv_nxt = 3
+      kcpcb.rcv_wnd = 5
+
+      kcpcb.rcv_queue = [{
+        sn: 1,
+      }, {
+        sn: 2,
+      }]
+      kcpcb.nrcv_que = 2
+
+      const seg = createSegment()
+      seg.sn = 4
+
+      parseData(kcpcb, seg)
+
+      expect(kcpcb.rcv_nxt).toBe(3)
+      expect(kcpcb.rcv_buf.map(item => item.sn)).toEqual([4, 5, 6])
+      expect(kcpcb.rcv_queue.map(item => item.sn)).toEqual([1, 2])
     })
   })
 })

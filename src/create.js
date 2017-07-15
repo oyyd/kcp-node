@@ -1,20 +1,19 @@
-const IKCP_RTO_NDL = 30
-const IKCP_RTO_MIN = 100
-const IKCP_RTO_DEF = 200
+export const IKCP_RTO_NDL = 30
+export const IKCP_RTO_MIN = 100
+export const IKCP_RTO_DEF = 200
 export const IKCP_RTO_MAX = 60000
-const IKCP_ASK_SEND = 1
-const IKCP_ASK_TELL = 2
-const IKCP_WND_SND = 32
-const IKCP_WND_RCV = 32
-const IKCP_MTU_DEF = 1400
-const IKCP_ACK_FAST = 3
-const IKCP_INTERVAL = 100
-const IKCP_DEADLINK = 20
-const IKCP_THRESH_INIT = 2
-const IKCP_THRESH_MIN = 2
-const IKCP_PROBE_INIT = 7000 // 7 secs to probe window size
-const IKCP_PROBE_LIMIT = 120000 // up to 120 secs to probe window
-
+export const IKCP_ASK_SEND = 1
+export const IKCP_ASK_TELL = 2
+export const IKCP_WND_SND = 32
+export const IKCP_WND_RCV = 32
+export const IKCP_MTU_DEF = 1400
+export const IKCP_ACK_FAST = 3
+export const IKCP_INTERVAL = 100
+export const IKCP_DEADLINK = 20
+export const IKCP_THRESH_INIT = 2
+export const IKCP_THRESH_MIN = 2
+export const IKCP_PROBE_INIT = 7000 // 7 secs to probe window size
+export const IKCP_PROBE_LIMIT = 120000 // up to 120 secs to probe window
 export const IKCP_OVERHEAD = 24
 export const IKCP_CMD_PUSH = 81
 export const IKCP_CMD_ACK = 82
@@ -80,4 +79,22 @@ export function create(conv, user) {
   }, DEFAULT_KCPCB)
 
   return instance
+}
+
+export function createSegment() {
+  return {
+    conv: 0,
+    cmd: 0,
+    frg: 0,
+    wnd: 0,
+    ts: 0,
+    sn: 0,
+    una: 0,
+    len: 0,
+    resendts: 0,
+    rto: 0,
+    fastack: 0,
+    xmit: 0,
+    data: null,
+  }
 }

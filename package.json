@@ -42,6 +42,8 @@
       ],
       "no-param-reassign": 0,
       "no-mixed-operators": 0,
+      "operator-assignment": 0,
+      "no-bitwise": 0,
       "import/prefer-default-export": 0
     },
     "env": {
