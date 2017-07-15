@@ -98,3 +98,14 @@ export function createSegment() {
     data: null,
   }
 }
+
+export function setMtu(kcp, mtu) {
+  if (mtu < 50 || mtu < IKCP_OVERHEAD) {
+    return -1
+  }
+
+  kcp.mtu = mtu
+  kcp.mss = kcp.mtu - IKCP_OVERHEAD
+
+  return 0
+}
