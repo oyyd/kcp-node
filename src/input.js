@@ -9,6 +9,7 @@ import {
   createSegment,
 } from './create'
 
+// @private
 export function parseUna(kcp, una) {
   const length = kcp.snd_buf.length
   let i = 0
@@ -24,11 +25,11 @@ export function parseUna(kcp, una) {
   }
 }
 
+// @private
 export function shrinkBuf(kcp) {
   if (kcp.snd_buf.length > 0) {
     kcp.snd_una = kcp.snd_buf[0].sn
   } else {
-    // TODO: what's snd_nxt
     kcp.snd_una = kcp.snd_nxt
   }
 }
@@ -69,7 +70,6 @@ export function parseAck(kcp, sn) {
   let cur = 0
 
   for (; cur !== length; cur += 1) {
-    // NOTE: it's better to use link tables instead of arraies
     const seg = kcp.snd_buf[cur]
 
     if (sn === seg.sn) {
@@ -88,7 +88,7 @@ export function parseAck(kcp, sn) {
 // @private
 export function ackPush(kcp, sn, ts) {
   const newsize = kcp.ackcount + 1
-  let newblock = 1
+  let newblock = 2
 
   if (newsize > kcp.ackblock) {
     for (; newblock < newsize; newblock *= 2);
@@ -149,8 +149,88 @@ export function parseData(kcp, newseg) {
 }
 
 // @private
-export function parseFastack(kcp, maxack) {
+export function parseFastack(kcp, sn) {
+  if (sn < kcp.snd_una || sn >= kcp.snd_nxt) {
+    return
+  }
 
+  const { length } = kcp.snd_buf
+
+  for (let i = 0; i < length; i += 1) {
+    const seg = kcp.snd_buf[i]
+
+    if (sn < seg.sn) {
+      break
+    } else if (sn !== seg.sn) {
+      kcp.fastack += 1
+    }
+  }
+}
+
+// @private
+export function readFromBuffer(buffer, offset) {
+  return {
+    conv: buffer.readUInt32BE(offset),
+    cmd: buffer.readUInt8(offset + 4),
+    frg: buffer.readUInt8(offset + 5),
+    wnd: buffer.readUInt16BE(offset + 6),
+    ts: buffer.readUInt32BE(offset + 8),
+    sn: buffer.readUInt32BE(offset + 12),
+    una: buffer.readUInt32BE(offset + 16),
+    len: buffer.readUInt32BE(offset + 20),
+  }
+}
+
+// @private
+export function ack(kcp, ts, sn) {
+  const delta = kcp.current - ts
+
+  if (delta >= 0) {
+    updateAck(kcp, delta)
+  }
+
+  parseAck(kcp, sn)
+  shrinkBuf(kcp)
+}
+
+// @private
+export function push(kcp, ts, sn, seg) {
+  if (sn >= kcp.rcv_nxt + kcp.rcv_wnd) {
+    return
+  }
+
+  ackPush(kcp, sn, ts)
+
+  if (sn >= kcp.rcv_nxt) {
+    parseData(kcp, seg)
+  }
+}
+
+// NOTE: check the tcp consign controll
+// @private
+export function updateCwnd(kcp, originalUna) {
+  if (kcp.snd_una > originalUna && kcp.cwnd < kcp.rmt_wnd) {
+    const { mss } = kcp
+
+    if (kcp.cwnd < kcp.ssthresh) {
+      kcp.cwnd += 1
+      kcp.incr += kcp.mss
+    } else {
+      if (kcp.incr < mss) {
+        kcp.incr = mss
+      }
+
+      kcp.incr += (mss * mss) / kcp.incr + (mss / 16)
+      if ((kcp.cwnd + 1) * mss <= kcp.incr) {
+        kcp.cwnd += 1
+      }
+    }
+
+    if (kcp.cwnd > kcp.rmt_wnd) {
+      kcp.cwnd = kcp.rmt_wnd
+      kcp.incr = kcp.rmt_wnd * mss
+    }
+  }
 }
 
 // @private
@@ -158,6 +238,9 @@ export function input(kcp, buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < IKCP_OVERHEAD) {
     return -1
   }
+
+  // the original una
+  const originalUna = kcp.snd_una
 
   // TODO: test the size and the offset
   let size = buffer.length
@@ -170,19 +253,21 @@ export function input(kcp, buffer) {
       break
     }
 
-    const conv = buffer.readUInt32BE(offset)
+    const info = readFromBuffer(buffer, offset)
+    const {
+      conv,
+      cmd,
+      // frg,
+      wnd,
+      ts,
+      sn,
+      una,
+      len,
+    } = info
 
     if (conv !== kcp.conv) {
       return -1
     }
-
-    const cmd = buffer.readUInt8BE(offset, 4)
-    const frg = buffer.readUInt8BE(offset, 5)
-    const wnd = buffer.readUInt16BE(offset, 6)
-    const ts = buffer.readUInt32BE(offset, 8)
-    const sn = buffer.readUInt32BE(offset, 12)
-    const una = buffer.readUInt32BE(offset, 16)
-    const len = buffer.readUInt32BE(offset, 20)
 
     size -= IKCP_OVERHEAD
     offset += IKCP_OVERHEAD
@@ -205,14 +290,7 @@ export function input(kcp, buffer) {
     shrinkBuf(kcp)
 
     if (cmd === IKCP_CMD_ACK) {
-      const delta = kcp.current - ts
-
-      if (delta >= 0) {
-        updateAck(kcp, delta)
-      }
-
-      parseAck(kcp, sn)
-      shrinkBuf(kcp)
+      ack(kcp, ts, sn)
 
       if (flag === 0) {
         flag = 1
@@ -221,28 +299,11 @@ export function input(kcp, buffer) {
         maxack = sn
       }
     } else if (cmd === IKCP_CMD_PUSH) {
-      if (sn < kcp.rcv_nxt + kcp.rcv_wnd) {
-        ackPush(kcp, sn, ts)
+      const seg = Object.assign(createSegment(), info, {
+        data: len > 0 ? buffer.slice(offset + IKCP_OVERHEAD, offset + IKCP_OVERHEAD + len) : null,
+      })
 
-        if (sn >= kcp.rcv_nxt) {
-          const seg = createSegment()
-          seg.conv = conv
-          seg.cmd = cmd
-          seg.frg = frg
-          seg.wnd = wnd
-          seg.ts = ts
-          seg.sn = sn
-          seg.una = una
-          seg.len = len
-
-          // TODO: check
-          if (size > IKCP_OVERHEAD) {
-            seg.data = buffer.slice(offset + IKCP_OVERHEAD, offset + IKCP_OVERHEAD + len)
-          }
-
-          parseData(kcp, seg)
-        }
-      }
+      push(kcp, ts, sn, seg)
     } else if (cmd === IKCP_CMD_WASK) {
       kcp.probe |= IKCP_ASK_TELL
     } else if (cmd === IKCP_CMD_WINS) {
@@ -258,4 +319,8 @@ export function input(kcp, buffer) {
   if (flag !== 0) {
     parseFastack(kcp, maxack)
   }
+
+  updateCwnd(kcp, originalUna)
+
+  return 0
 }
