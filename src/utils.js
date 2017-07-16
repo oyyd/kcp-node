@@ -1,5 +1,5 @@
 export function isEmpty(arr) {
-  return Array.isArray(arr) && arr.length > 0
+  return !(Array.isArray(arr) && arr.length > 0)
 }
 
 export function getCurrent() {
