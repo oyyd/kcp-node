@@ -40,6 +40,7 @@
         2,
         "never"
       ],
+      "camelcase": 0,
       "no-param-reassign": 0,
       "no-mixed-operators": 0,
       "operator-assignment": 0,
