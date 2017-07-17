@@ -38,7 +38,8 @@ export const DEFAULT_KCPCB = {
   mtu: IKCP_MTU_DEF,
   stream: 0,
   mss: IKCP_MTU_DEF - IKCP_OVERHEAD,
-  // TODO:
+  // TODO: two other fields not used
+  // TODO: we don't need buffer
   buffer: null,
   snd_queue: null,
   rcv_queue: null,
