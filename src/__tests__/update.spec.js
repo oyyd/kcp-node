@@ -1,7 +1,22 @@
-import { encodeSeg, updateAndFlush, check } from '../update'
-import { IKCP_OVERHEAD, createSegment } from '../create'
+import { outputProbe, setProbe, outputAcks, encodeSeg, updateAndFlush, check } from '../update'
+import { IKCP_ASK_SEND, IKCP_CMD_ACK, IKCP_PROBE_INIT, IKCP_OVERHEAD, createSegment } from '../create'
 import { getCurrent } from '../utils'
 import { createTestKCP } from './utils'
+
+function createSeg(kcp) {
+  const seg = createSegment()
+
+  seg.conv = kcp.conv
+  seg.cmd = IKCP_CMD_ACK
+  seg.frg = 0
+  seg.wnd = kcp.nrcv_que < kcp.rcv_wnd ? kcp.rcv_wnd - kcp.nrcv_que : 0
+  seg.una = kcp.rcv_nxt
+  seg.len = 0
+  seg.sn = 0
+  seg.ts = 0
+
+  return seg
+}
 
 describe('update.js', () => {
   let kcp
@@ -138,6 +153,122 @@ describe('update.js', () => {
       encodeSeg(buffer, IKCP_OVERHEAD, seg)
       expect(buffer.slice(0, 2 * IKCP_OVERHEAD).toString('hex'))
         .toBe('000000015402000300000006000000050000000200000009000000015402000300000006000000050000000200000009')
+    })
+  })
+
+  describe('outputAcks', () => {
+    let output
+    let current
+    let lasterBufferString
+    let seg
+
+    beforeEach(() => {
+      seg = createSeg(kcp)
+
+      current = 1448256732
+      output = jest.fn(buffer => (lasterBufferString = buffer.toString('hex')))
+      kcp.output = output
+      kcp.mtu = IKCP_OVERHEAD * 3
+      kcp.buffer = Buffer.alloc(kcp.mtu)
+      kcp.acklist = [1, current + 10, 2, current + 20, 3, current + 30]
+      kcp.ackcount = kcp.acklist.length / 2
+    })
+
+    it('should put all acks to the output buffer', () => {
+      outputAcks(kcp, seg)
+
+      expect(kcp.ackcount).toBe(0)
+      expect(kcp.buffer.toString('hex')).toBe('00000000520000205652a4e600000001000000000000000000000000520000205652a4f000000002000000000000000000000000520000205652a4fa000000030000000000000000')
+      expect(output.mock.calls.length).toBe(0)
+    })
+
+    it('should output all acks when their total sizes are larger than one mtu', () => {
+      kcp.mtu = IKCP_OVERHEAD * 2
+      outputAcks(kcp, seg)
+
+      expect(kcp.ackcount).toBe(0)
+      expect(kcp.buffer.toString('hex')).toBe('00000000520000205652a4fa00000003000000000000000000000000520000205652a4f0000000020000000000000000000000000000000000000000000000000000000000000000')
+      expect(output.mock.calls.length).toBe(1)
+      expect(lasterBufferString).toBe('00000000520000205652a4e600000001000000000000000000000000520000205652a4f0000000020000000000000000')
+      expect(output.mock.calls[0][1]).toBe(kcp)
+      expect(output.mock.calls[0][2]).toBe(kcp.user)
+    })
+  })
+
+  describe('setProbe', () => {
+    let current
+
+    beforeEach(() => {
+      current = getCurrent()
+      kcp.current = current
+    })
+
+    it('should do nothing if we know the rmt_wnd', () => {
+      kcp.rmt_wnd = 3
+
+      setProbe(kcp)
+
+      expect(kcp.ts_probe).toBe(0)
+      expect(kcp.probe_wait).toBe(0)
+    })
+
+    it('should set initial wait properties if not set before', () => {
+      kcp.rmt_wnd = 0
+      setProbe(kcp)
+
+      expect(kcp.probe_wait).toBe(IKCP_PROBE_INIT)
+      expect(kcp.ts_probe).toBe(current + IKCP_PROBE_INIT)
+    })
+
+    it('should and another half time for waiting', () => {
+      kcp.rmt_wnd = 0
+      kcp.ts_probe = current - 100
+      kcp.probe_wait = 8000
+
+      setProbe(kcp)
+      expect(kcp.probe_wait).toBe(8000 * 1.5)
+      expect(kcp.ts_probe).toBe(current + 8000 * 1.5)
+    })
+  })
+
+  describe('outputProbe', () => {
+    let seg
+
+    beforeEach(() => {
+      seg = createSeg(kcp)
+    })
+
+    it('should do nothing if it dont probe', () => {
+      kcp.probe = 0
+      kcp.buffer = Buffer.alloc(IKCP_OVERHEAD * 2)
+
+      outputProbe(kcp, seg, IKCP_OVERHEAD)
+
+      expect(kcp.buffer.toString('hex')).toBe('000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
+    })
+
+    it('should put a segment to buffer if the kcp.probe support IKCP_ASK_SEND', () => {
+      kcp.probe |= IKCP_ASK_SEND
+
+      kcp.buffer = Buffer.alloc(IKCP_OVERHEAD * 2)
+
+      outputProbe(kcp, seg, IKCP_OVERHEAD)
+
+      expect(kcp.buffer.toString('hex')).toBe('000000000000000000000000000000000000000000000000000000005300002000000000000000000000000000000000')
+    })
+
+    it('should call output if if\'s over a mtu', () => {
+      let lasterBufferString = ''
+      kcp.mtu = IKCP_OVERHEAD * 2
+      kcp.output = jest.fn(buf => (lasterBufferString = buf.toString('hex')))
+      kcp.probe |= IKCP_ASK_SEND
+
+      kcp.buffer = Buffer.alloc(IKCP_OVERHEAD * 2)
+
+      outputProbe(kcp, seg, IKCP_OVERHEAD + 1)
+
+      expect(lasterBufferString).toBe('00000000000000000000000000000000000000000000000000')
+      expect(kcp.buffer.toString('hex')).toBe('000000005300002000000000000000000000000000000000000000000000000000000000000000000000000000000000')
     })
   })
 })

@@ -1,8 +1,4 @@
-import {
-  IKCP_CMD_ACK,
-  IKCP_OVERHEAD,
-  createSegment,
-} from './create'
+import { IKCP_CMD_WASK, IKCP_ASK_SEND, IKCP_PROBE_LIMIT, IKCP_PROBE_INIT, IKCP_CMD_ACK, IKCP_OVERHEAD, createSegment } from './create'
 
 // @private
 export function output(kcp, buffer) {
@@ -28,25 +24,8 @@ export function encodeSeg(buffer, offset, seg) {
 }
 
 // @private
-export function flush(kcp) {
-  // TODO: the allection is expensive especially when there is too many conenctions
-  // TODO: make sure the allocation is correct
-  // TODO: reassign a buffer at the end of flush
-  const { buffer, current } = kcp
-  const seg = createSegment()
-
-  if (kcp.updated === 0) {
-    return
-  }
-
-  seg.conv = kcp.conv
-  seg.cmd = IKCP_CMD_ACK
-  seg.frg = 0
-  seg.wnd = kcp.nrcv_que < kcp.rcv_wnd ? kcp.rcv_wnd - kcp.nrcv_que : 0
-  seg.una = kcp.rcv_nxt
-  seg.len = 0
-  seg.sn = 0
-  seg.ts = 0
+export function outputAcks(kcp, seg) {
+  const { buffer } = kcp
 
   const count = kcp.ackcount
   let i = 0
@@ -68,6 +47,81 @@ export function flush(kcp) {
   }
 
   kcp.ackcount = 0
+
+  return offset
+}
+
+// @private
+export function setProbe(kcp) {
+  // if don't know remote window
+  if (kcp.rmt_wnd === 0) {
+    // if no valid probe wait time
+    if (kcp.probe_wait === 0) {
+      kcp.probe_wait = IKCP_PROBE_INIT
+      // set prove time
+      kcp.ts_probe = kcp.current + kcp.probe_wait
+    // if current time is over the time to probe
+    } else if (kcp.current >= kcp.ts_probe) {
+      if (kcp.probe_wait < IKCP_PROBE_INIT) kcp.probe_wait = IKCP_PROBE_INIT
+      // wait time * 1.5
+      kcp.probe_wait += kcp.probe_wait / 2
+      if (kcp.probe_wait > IKCP_PROBE_LIMIT) kcp.probe_wait = IKCP_PROBE_LIMIT
+      // set wait time again
+      kcp.ts_probe = kcp.current + kcp.probe_wait
+      kcp.probe |= IKCP_ASK_SEND
+    }
+  // know remote window
+  } else {
+    kcp.ts_probe = 0
+    kcp.probe_wait = 0
+  }
+}
+
+// @private
+export function outputProbe(kcp, seg, offset) {
+  const { buffer } = kcp
+
+  if (kcp.probe & IKCP_ASK_SEND) {
+    seg.cmd = IKCP_CMD_WASK
+    if (offset + IKCP_OVERHEAD > kcp.mtu) {
+      output(kcp, buffer.slice(0, offset))
+      offset = 0
+    }
+
+    encodeSeg(buffer, offset, seg)
+    offset += IKCP_OVERHEAD
+  }
+
+  return offset
+}
+
+// @private
+export function flush(kcp) {
+  // TODO: the allection is expensive especially when there is too many conenctions
+  // TODO: make sure the allocation is correct
+  // TODO: reassign a buffer at the end of flush
+  if (kcp.updated === 0) {
+    return
+  }
+
+  const seg = createSegment()
+
+  seg.conv = kcp.conv
+  seg.cmd = IKCP_CMD_ACK
+  seg.frg = 0
+  seg.wnd = kcp.nrcv_que < kcp.rcv_wnd ? kcp.rcv_wnd - kcp.nrcv_que : 0
+  seg.una = kcp.rcv_nxt
+  seg.len = 0
+  seg.sn = 0
+  seg.ts = 0
+
+  let offset = 0
+
+  offset = outputAcks(kcp, seg)
+
+  setProbe(kcp)
+
+  offset = outputProbe(kcp, seg, offset)
 }
 
 export function check(kcp, current) {
