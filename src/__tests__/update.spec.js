@@ -1,4 +1,5 @@
 import {
+  outputBuf,
   putQueueToBuf,
   outputProbe,
   setProbe,
@@ -342,6 +343,126 @@ describe('update.js', () => {
       expect(kcp.snd_buf.every(item => item.cmd === IKCP_CMD_PUSH)).toBeTruthy()
       expect(kcp.nsnd_que).toBe(1)
       expect(kcp.nsnd_buf).toBe(2)
+    })
+  })
+
+  describe('outputBuf', () => {
+    let cwnd
+    let next
+    let rtomin
+    let resent
+    let offset
+    let current
+
+    beforeEach(() => {
+      current = 1538287116
+      offset = 0
+      rtomin = 100
+      resent = 100
+      cwnd = 3
+
+      next = jest.fn()
+
+      kcp.rx_rto = 100
+      kcp.current = current
+      kcp.output = next
+      kcp.snd_buf = [{
+        xmit: 0,
+        sn: 3,
+        data: Buffer.from('11111111111111111111111111111111', 'hex'),
+        len: 16,
+      }]
+      kcp.buffer = Buffer.alloc((IKCP_OVERHEAD + 1400) * 3)
+    })
+
+    it('should set initial `rto` and `resendts` if `xmit` is 0', () => {
+      const { offset: off, lost, change } = outputBuf(kcp, cwnd, offset, rtomin, resent)
+
+      const bufEle = kcp.snd_buf[0]
+      expect(bufEle.xmit).toBe(1)
+      expect(bufEle.rto).toBe(100)
+      expect(bufEle.resendts).toBe(current + 100 + 100)
+      expect(off).toBe(bufEle.len + IKCP_OVERHEAD)
+      expect(lost).toBe(0)
+      expect(change).toBe(0)
+    })
+
+    it('should set new `rto` and `resendts` if `current` is more than the resendts', () => {
+      kcp.nodelay = 0
+      kcp.snd_buf[0].xmit = 1
+      kcp.snd_buf[0].rto = 100
+      kcp.snd_buf[0].resendts = current - 10
+
+      const { offset: off, lost, change } = outputBuf(kcp, cwnd, offset, rtomin, resent)
+
+      const bufEle = kcp.snd_buf[0]
+      expect(bufEle.xmit).toBe(2)
+      expect(bufEle.rto).toBe(200)
+      expect(bufEle.resendts).toBe(current + 200)
+      expect(off).toBe(bufEle.len + IKCP_OVERHEAD)
+      expect(lost).toBe(1)
+      expect(change).toBe(0)
+    })
+
+    it('should plus half of a `rto` if `nodelay`', () => {
+      kcp.nodelay = 1
+      kcp.snd_buf[0].xmit = 1
+      kcp.snd_buf[0].rto = 100
+      kcp.snd_buf[0].resendts = current - 10
+
+      const { offset: off, lost, change } = outputBuf(kcp, cwnd, offset, rtomin, resent)
+
+      const bufEle = kcp.snd_buf[0]
+      expect(bufEle.xmit).toBe(2)
+      expect(bufEle.rto).toBe(150)
+      expect(bufEle.resendts).toBe(current + 150)
+      expect(bufEle.ts).toBe(current)
+      expect(bufEle.wnd).toBe(cwnd)
+      expect(off).toBe(bufEle.len + IKCP_OVERHEAD)
+      expect(lost).toBe(1)
+      expect(change).toBe(0)
+      expect(kcp.buffer.slice(0, IKCP_OVERHEAD + bufEle.len).toString('hex'))
+        .toBe('00000000000000035bb0660c00000003000000000000001011111111111111111111111111111111')
+    })
+
+    it('should not add rto if the `fastack` is smaller than the `resent`', () => {
+      resent = current + 400
+      kcp.nodelay = 1
+      kcp.snd_buf[0].xmit = 1
+      kcp.snd_buf[0].fastack = current + 500
+      kcp.snd_buf[0].rto = 100
+      kcp.snd_buf[0].resendts = current + 1000
+
+      const { offset: off, lost, change } = outputBuf(kcp, cwnd, offset, rtomin, resent)
+
+      const bufEle = kcp.snd_buf[0]
+      expect(bufEle.xmit).toBe(2)
+      expect(bufEle.rto).toBe(100)
+      expect(bufEle.resendts).toBe(current + 100)
+      expect(off).toBe(bufEle.len + IKCP_OVERHEAD)
+      expect(lost).toBe(0)
+      expect(change).toBe(1)
+    })
+
+    it('should do nothing if it don\'t satisfy the all the conditions above', () => {
+      resent = current + 600
+      kcp.nodelay = 1
+      kcp.snd_buf[0].xmit = 1
+      kcp.snd_buf[0].fastack = current + 500
+      kcp.snd_buf[0].rto = 100
+      kcp.snd_buf[0].resendts = current + 1000
+
+      const { offset: off, lost, change } = outputBuf(kcp, cwnd, offset, rtomin, resent)
+
+      const bufEle = kcp.snd_buf[0]
+      expect(bufEle.xmit).toBe(1)
+      expect(bufEle.rto).toBe(100)
+      expect(bufEle.resendts).toBe(current + 1000)
+      expect(off).toBe(0)
+      expect(lost).toBe(0)
+      expect(change).toBe(0)
+      expect(kcp.buffer.slice(0, IKCP_OVERHEAD + bufEle.len).toString('hex'))
+        .toBe('00000000000000000000000000000000000000000000000000000000000000000000000000000000')
     })
   })
 })

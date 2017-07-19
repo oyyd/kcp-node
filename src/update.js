@@ -10,7 +10,7 @@ import {
   IKCP_OVERHEAD,
   createSegment,
 } from './create'
-import { isEmpty } from './utils'
+// import { isEmpty } from './utils'
 
 // @private
 export function output(kcp, buffer) {
@@ -138,6 +138,77 @@ export function putQueueToBuf(kcp, cwnd) {
 }
 
 // @private
+export function outputBuf(kcp, wnd, offset, rtomin, resent) {
+  const { current, buffer } = kcp
+  const length = kcp.snd_buf.length
+  let lost = 0
+  let change = 0
+
+  for (let i = 0; i < length; i += 1) {
+    const segment = kcp.snd_buf[i]
+    let needsend = 0
+
+    if (segment.xmit === 0) {
+      needsend = 1
+      segment.xmit += 1
+      segment.rto = kcp.rx_rto
+      // NOTE: we don't plus rtomin if xmit is not 0
+      // TODO: why rotmin?
+      segment.resendts = current + segment.rto + rtomin
+    } else if (current >= segment.resendts) {
+      needsend = 1
+      segment.xmit += 1
+      kcp.xmit += 1
+
+      // TODO: this is different from how it explained
+      if (kcp.nodelay === 0) {
+        segment.rto += kcp.rx_rto
+      } else {
+        segment.rto += kcp.rx_rto / 2
+      }
+
+      segment.resendts = current + segment.rto
+      lost = 1
+    } else if (segment.fastack >= resent) {
+      // TODO: make it more clear
+      needsend = 1
+      segment.xmit += 1
+      segment.fastack = 0
+      segment.resendts = current + segment.rto
+      change += 1
+    }
+
+    if (needsend) {
+      segment.ts = current
+      segment.wnd = wnd
+      segment.una = kcp.rcv_nxt
+
+      const need = IKCP_OVERHEAD + segment.len
+
+      if (offset + need > kcp.mtu) {
+        output(kcp, buffer.slice(0, offset))
+        offset = 0
+      }
+
+      encodeSeg(buffer, offset, segment)
+      offset += IKCP_OVERHEAD
+
+      if (segment.len > 0) {
+        segment.data.copy(buffer, offset, 0, segment.len)
+        offset += segment.len
+      }
+
+      if (segment.xmit >= kcp.dead_link) {
+        // TODO: for what
+        kcp.state = -1
+      }
+    }
+  }
+
+  return { offset, lost, change }
+}
+
+// @private
 export function flush(kcp) {
   // TODO: the allection is expensive especially when there is too many conenctions
   // TODO: make sure the allocation is correct
@@ -174,6 +245,14 @@ export function flush(kcp) {
   }
 
   putQueueToBuf(kcp, cwnd)
+
+  // TODO: nowhere to set fastresend
+  const resent = kcp.fastresend === 0 ? kcp.fastresend : Infinity
+  const rtomin = kcp.nodelay === 0 ? kcp.rx_rto >> 3 : 0
+
+  const res = outputBuf(kcp, seg.wnd, offset, rtomin, resent)
+  const { lost, change } = res
+  offset = res.offset
 }
 
 export function check(kcp, current) {
