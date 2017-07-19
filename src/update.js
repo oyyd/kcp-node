@@ -1,4 +1,16 @@
-import { IKCP_CMD_WASK, IKCP_ASK_SEND, IKCP_PROBE_LIMIT, IKCP_PROBE_INIT, IKCP_CMD_ACK, IKCP_OVERHEAD, createSegment } from './create'
+import {
+  IKCP_CMD_PUSH,
+  IKCP_ASK_TELL,
+  IKCP_CMD_WINS,
+  IKCP_CMD_WASK,
+  IKCP_ASK_SEND,
+  IKCP_PROBE_LIMIT,
+  IKCP_PROBE_INIT,
+  IKCP_CMD_ACK,
+  IKCP_OVERHEAD,
+  createSegment,
+} from './create'
+import { isEmpty } from './utils'
 
 // @private
 export function output(kcp, buffer) {
@@ -60,7 +72,7 @@ export function setProbe(kcp) {
       kcp.probe_wait = IKCP_PROBE_INIT
       // set prove time
       kcp.ts_probe = kcp.current + kcp.probe_wait
-    // if current time is over the time to probe
+      // if current time is over the time to probe
     } else if (kcp.current >= kcp.ts_probe) {
       if (kcp.probe_wait < IKCP_PROBE_INIT) kcp.probe_wait = IKCP_PROBE_INIT
       // wait time * 1.5
@@ -70,7 +82,7 @@ export function setProbe(kcp) {
       kcp.ts_probe = kcp.current + kcp.probe_wait
       kcp.probe |= IKCP_ASK_SEND
     }
-  // know remote window
+    // know remote window
   } else {
     kcp.ts_probe = 0
     kcp.probe_wait = 0
@@ -78,11 +90,11 @@ export function setProbe(kcp) {
 }
 
 // @private
-export function outputProbe(kcp, seg, offset) {
+export function outputProbe(kcp, seg, offset, flag, cmd) {
   const { buffer } = kcp
 
-  if (kcp.probe & IKCP_ASK_SEND) {
-    seg.cmd = IKCP_CMD_WASK
+  if (kcp.probe & flag) {
+    seg.cmd = cmd
     if (offset + IKCP_OVERHEAD > kcp.mtu) {
       output(kcp, buffer.slice(0, offset))
       offset = 0
@@ -93,6 +105,36 @@ export function outputProbe(kcp, seg, offset) {
   }
 
   return offset
+}
+
+// @private
+export function putQueueToBuf(kcp, cwnd) {
+  // TODO: test
+  // TODO: we somehow put data from snd_queue
+  // to snd_buf
+  const rest = kcp.snd_una + cwnd - kcp.snd_nxt
+  const size = Math.min(rest, kcp.nsnd_que)
+
+  for (let i = 0; i < size; i += 1) {
+    const seg = kcp.snd_queue[i]
+    seg.conv = kcp.conv
+    seg.cmd = IKCP_CMD_PUSH
+    seg.wnd = seg.wnd
+    seg.ts = kcp.current
+    // where `sn` decided
+    seg.sn = kcp.snd_nxt + i
+    seg.una = kcp.rcv_nxt
+    seg.resendts = kcp.current
+    seg.rto = kcp.rx_rto
+    seg.fastack = 0
+    seg.xmit = 0
+
+    kcp.snd_buf.push(seg)
+  }
+
+  kcp.snd_queue.splice(0, size)
+  kcp.nsnd_que -= size
+  kcp.nsnd_buf += size
 }
 
 // @private
@@ -121,7 +163,17 @@ export function flush(kcp) {
 
   setProbe(kcp)
 
-  offset = outputProbe(kcp, seg, offset)
+  offset = outputProbe(kcp, seg, offset, IKCP_ASK_SEND, IKCP_CMD_WASK)
+  offset = outputProbe(kcp, seg, offset, IKCP_ASK_TELL, IKCP_CMD_WINS)
+
+  kcp.probe = 0
+
+  let cwnd = Math.min(kcp.snd_wnd, kcp.rmt_wnd)
+  if (kcp.nocwnd === 0) {
+    cwnd = Math.min(kcp.cwnd, cwnd)
+  }
+
+  putQueueToBuf(kcp, cwnd)
 }
 
 export function check(kcp, current) {

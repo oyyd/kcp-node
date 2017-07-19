@@ -1,5 +1,21 @@
-import { outputProbe, setProbe, outputAcks, encodeSeg, updateAndFlush, check } from '../update'
-import { IKCP_ASK_SEND, IKCP_CMD_ACK, IKCP_PROBE_INIT, IKCP_OVERHEAD, createSegment } from '../create'
+import {
+  putQueueToBuf,
+  outputProbe,
+  setProbe,
+  outputAcks,
+  encodeSeg,
+  updateAndFlush,
+  check,
+} from '../update'
+import {
+  IKCP_CMD_WASK,
+  IKCP_ASK_SEND,
+  IKCP_CMD_ACK,
+  IKCP_PROBE_INIT,
+  IKCP_OVERHEAD,
+  IKCP_CMD_PUSH,
+  createSegment,
+} from '../create'
 import { getCurrent } from '../utils'
 import { createTestKCP } from './utils'
 
@@ -50,9 +66,11 @@ describe('update.js', () => {
     it('should return `current` the if one of the `resendts` in `snd_buf` is smaller/equal to the current', () => {
       kcp.updated = 1
       kcp.ts_flush = current + 1000
-      kcp.snd_buf = [{
-        resendts: current - 1000,
-      }]
+      kcp.snd_buf = [
+        {
+          resendts: current - 1000,
+        },
+      ]
 
       expect(check(kcp, current)).toBe(current)
     })
@@ -61,9 +79,11 @@ describe('update.js', () => {
       kcp.interval = 1000
       kcp.updated = 1
       kcp.ts_flush = current + 1000
-      kcp.snd_buf = [{
-        resendts: current + 500,
-      }]
+      kcp.snd_buf = [
+        {
+          resendts: current + 500,
+        },
+      ]
 
       expect(check(kcp, current)).toBe(current + 500)
     })
@@ -72,9 +92,11 @@ describe('update.js', () => {
       kcp.interval = 100
       kcp.updated = 1
       kcp.ts_flush = current + 1000
-      kcp.snd_buf = [{
-        resendts: current + 500,
-      }]
+      kcp.snd_buf = [
+        {
+          resendts: current + 500,
+        },
+      ]
 
       expect(check(kcp, current)).toBe(current + 100)
     })
@@ -111,7 +133,7 @@ describe('update.js', () => {
       expect(kcp.current).toBe(current)
     })
 
-    it('should reset `ts_flush` if it\'s too small', () => {
+    it("should reset `ts_flush` if it's too small", () => {
       kcp.updated = 1
       kcp.ts_flush = current - 20000
 
@@ -140,8 +162,9 @@ describe('update.js', () => {
 
     it('should append segment info to the buffer', () => {
       encodeSeg(buffer, 0, seg)
-      expect(buffer.slice(0, IKCP_OVERHEAD).toString('hex'))
-        .toBe('000000015402000300000006000000050000000200000009')
+      expect(buffer.slice(0, IKCP_OVERHEAD).toString('hex')).toBe(
+        '000000015402000300000006000000050000000200000009',
+      )
     })
 
     it('should', () => {
@@ -151,8 +174,9 @@ describe('update.js', () => {
       ])
 
       encodeSeg(buffer, IKCP_OVERHEAD, seg)
-      expect(buffer.slice(0, 2 * IKCP_OVERHEAD).toString('hex'))
-        .toBe('000000015402000300000006000000050000000200000009000000015402000300000006000000050000000200000009')
+      expect(buffer.slice(0, 2 * IKCP_OVERHEAD).toString('hex')).toBe(
+        '000000015402000300000006000000050000000200000009000000015402000300000006000000050000000200000009',
+      )
     })
   })
 
@@ -178,7 +202,9 @@ describe('update.js', () => {
       outputAcks(kcp, seg)
 
       expect(kcp.ackcount).toBe(0)
-      expect(kcp.buffer.toString('hex')).toBe('00000000520000205652a4e600000001000000000000000000000000520000205652a4f000000002000000000000000000000000520000205652a4fa000000030000000000000000')
+      expect(kcp.buffer.toString('hex')).toBe(
+        '00000000520000205652a4e600000001000000000000000000000000520000205652a4f000000002000000000000000000000000520000205652a4fa000000030000000000000000',
+      )
       expect(output.mock.calls.length).toBe(0)
     })
 
@@ -187,9 +213,13 @@ describe('update.js', () => {
       outputAcks(kcp, seg)
 
       expect(kcp.ackcount).toBe(0)
-      expect(kcp.buffer.toString('hex')).toBe('00000000520000205652a4fa00000003000000000000000000000000520000205652a4f0000000020000000000000000000000000000000000000000000000000000000000000000')
+      expect(kcp.buffer.toString('hex')).toBe(
+        '00000000520000205652a4fa00000003000000000000000000000000520000205652a4f0000000020000000000000000000000000000000000000000000000000000000000000000',
+      )
       expect(output.mock.calls.length).toBe(1)
-      expect(lasterBufferString).toBe('00000000520000205652a4e600000001000000000000000000000000520000205652a4f0000000020000000000000000')
+      expect(lasterBufferString).toBe(
+        '00000000520000205652a4e600000001000000000000000000000000520000205652a4f0000000020000000000000000',
+      )
       expect(output.mock.calls[0][1]).toBe(kcp)
       expect(output.mock.calls[0][2]).toBe(kcp.user)
     })
@@ -242,9 +272,11 @@ describe('update.js', () => {
       kcp.probe = 0
       kcp.buffer = Buffer.alloc(IKCP_OVERHEAD * 2)
 
-      outputProbe(kcp, seg, IKCP_OVERHEAD)
+      outputProbe(kcp, seg, IKCP_OVERHEAD, IKCP_ASK_SEND, IKCP_CMD_WASK)
 
-      expect(kcp.buffer.toString('hex')).toBe('000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
+      expect(kcp.buffer.toString('hex')).toBe(
+        '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+      )
     })
 
     it('should put a segment to buffer if the kcp.probe support IKCP_ASK_SEND', () => {
@@ -252,12 +284,14 @@ describe('update.js', () => {
 
       kcp.buffer = Buffer.alloc(IKCP_OVERHEAD * 2)
 
-      outputProbe(kcp, seg, IKCP_OVERHEAD)
+      outputProbe(kcp, seg, IKCP_OVERHEAD, IKCP_ASK_SEND, IKCP_CMD_WASK)
 
-      expect(kcp.buffer.toString('hex')).toBe('000000000000000000000000000000000000000000000000000000005300002000000000000000000000000000000000')
+      expect(kcp.buffer.toString('hex')).toBe(
+        '000000000000000000000000000000000000000000000000000000005300002000000000000000000000000000000000',
+      )
     })
 
-    it('should call output if if\'s over a mtu', () => {
+    it("should call output if if's over a mtu", () => {
       let lasterBufferString = ''
       kcp.mtu = IKCP_OVERHEAD * 2
       kcp.output = jest.fn(buf => (lasterBufferString = buf.toString('hex')))
@@ -265,10 +299,49 @@ describe('update.js', () => {
 
       kcp.buffer = Buffer.alloc(IKCP_OVERHEAD * 2)
 
-      outputProbe(kcp, seg, IKCP_OVERHEAD + 1)
+      outputProbe(kcp, seg, IKCP_OVERHEAD + 1, IKCP_ASK_SEND, IKCP_CMD_WASK)
 
-      expect(lasterBufferString).toBe('00000000000000000000000000000000000000000000000000')
-      expect(kcp.buffer.toString('hex')).toBe('000000005300002000000000000000000000000000000000000000000000000000000000000000000000000000000000')
+      expect(lasterBufferString).toBe(
+        '00000000000000000000000000000000000000000000000000',
+      )
+      expect(kcp.buffer.toString('hex')).toBe(
+        '000000005300002000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+      )
+    })
+  })
+
+  describe('putQueueToBuf', () => {
+    let seg
+
+    beforeEach(() => {
+      seg = createSegment()
+
+      // seg.nrcv_que.length
+      kcp.snd_queue = [
+        Object.assign({}, seg, {
+        }),
+        Object.assign({}, seg, {
+        }),
+        Object.assign({}, seg, {
+        }),
+      ]
+      kcp.nsnd_que = kcp.snd_queue.length
+      kcp.snd_buf = []
+      kcp.nsnd_buf = 0
+      kcp.snd_una = 1
+      kcp.snd_nxt = 1
+    })
+
+    it('should put segs from `snd_queue` to `snd_buf`', () => {
+      const cwnd = 2
+      putQueueToBuf(kcp, cwnd)
+
+      expect(kcp.snd_queue.length).toBe(1)
+      expect(kcp.snd_buf.length).toBe(2)
+      expect(kcp.snd_buf.map(item => item.sn)).toEqual([1, 2])
+      expect(kcp.snd_buf.every(item => item.cmd === IKCP_CMD_PUSH)).toBeTruthy()
+      expect(kcp.nsnd_que).toBe(1)
+      expect(kcp.nsnd_buf).toBe(2)
     })
   })
 })
