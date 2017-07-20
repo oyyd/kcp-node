@@ -1,4 +1,5 @@
 import {
+  IKCP_THRESH_MIN,
   IKCP_CMD_PUSH,
   IKCP_ASK_TELL,
   IKCP_CMD_WINS,
@@ -209,6 +210,40 @@ export function outputBuf(kcp, wnd, offset, rtomin, resent) {
 }
 
 // @private
+export function setCwnd(kcp, change, lost, cwnd, resent) {
+  // fastacked
+  if (change) {
+    const inflight = kcp.snd_nxt - kcp.snd_una
+    kcp.ssthresh = inflight / 2
+
+    // TODO: ssthresh
+    if (kcp.ssthresh < IKCP_THRESH_MIN) {
+      kcp.ssthresh = IKCP_THRESH_MIN
+    }
+
+    kcp.cwnd = kcp.ssthresh + resent
+    // TODO: where to use incr?
+    kcp.incr = kcp.cwnd * kcp.mss
+  }
+
+  if (lost) {
+    kcp.ssthresh = cwnd / 2
+
+    if (kcp.ssthresh < IKCP_THRESH_MIN) {
+      kcp.ssthresh = IKCP_THRESH_MIN
+    }
+
+    kcp.cwnd = 1
+    kcp.incr = kcp.mss
+  }
+
+  if (kcp.cwnd < 1) {
+    kcp.cwnd = 1
+    kcp.incr = kcp.mss
+  }
+}
+
+// @private
 export function flush(kcp) {
   // TODO: the allection is expensive especially when there is too many conenctions
   // TODO: make sure the allocation is correct
@@ -247,12 +282,18 @@ export function flush(kcp) {
   putQueueToBuf(kcp, cwnd)
 
   // TODO: nowhere to set fastresend
-  const resent = kcp.fastresend === 0 ? kcp.fastresend : Infinity
+  const resent = kcp.fastresend > 0 ? kcp.fastresend : Infinity
   const rtomin = kcp.nodelay === 0 ? kcp.rx_rto >> 3 : 0
 
   const res = outputBuf(kcp, seg.wnd, offset, rtomin, resent)
   const { lost, change } = res
   offset = res.offset
+
+  if (offset > 0) {
+    outputBuf(kcp, kcp.buffer.slice(0, offset))
+  }
+
+  setCwnd(kcp, change, lost, cwnd, resent)
 }
 
 export function check(kcp, current) {
