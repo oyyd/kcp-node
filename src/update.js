@@ -214,7 +214,7 @@ export function setCwnd(kcp, change, lost, cwnd, resent) {
   // fastacked
   if (change) {
     const inflight = kcp.snd_nxt - kcp.snd_una
-    kcp.ssthresh = inflight / 2
+    kcp.ssthresh = Math.floor(inflight / 2)
 
     // TODO: ssthresh
     if (kcp.ssthresh < IKCP_THRESH_MIN) {
@@ -227,7 +227,7 @@ export function setCwnd(kcp, change, lost, cwnd, resent) {
   }
 
   if (lost) {
-    kcp.ssthresh = cwnd / 2
+    kcp.ssthresh = Math.floor(cwnd / 2)
 
     if (kcp.ssthresh < IKCP_THRESH_MIN) {
       kcp.ssthresh = IKCP_THRESH_MIN

@@ -1,4 +1,5 @@
 import {
+  setCwnd,
   outputBuf,
   putQueueToBuf,
   outputProbe,
@@ -467,8 +468,50 @@ describe('update.js', () => {
   })
 
   describe('setCwnd', () => {
-    it('should', () => {
+    it('should calculate a new `cwnd` and `incr` if changed', () => {
+      const change = 1
+      const lost = 0
+      const cwnd = 3
+      const resent = 2
 
+      kcp.snd_nxt = 6
+      kcp.snd_una = 0
+
+      setCwnd(kcp, change, lost, cwnd, resent)
+
+      expect(kcp.cwnd).toBe(5)
+      expect(kcp.ssthresh).toBe(3)
+      expect(kcp.incr).toBe(6880)
+    })
+
+    it('should shrink the `cwnd` if lost', () => {
+      const change = 0
+      const lost = 1
+      const cwnd = 3
+      const resent = 2
+
+      kcp.snd_nxt = 6
+      kcp.snd_una = 0
+
+      setCwnd(kcp, change, lost, cwnd, resent)
+
+      expect(kcp.cwnd).toBe(1)
+      expect(kcp.ssthresh).toBe(2)
+      expect(kcp.incr).toBe(1376)
+    })
+
+    it('should keep `cwnd` more than 0', () => {
+      const change = 0
+      const lost = 0
+      const cwnd = 0
+      const resent = 0
+
+      kcp.cwnd = 0
+
+
+      setCwnd(kcp, change, lost, cwnd, resent)
+
+      expect(kcp.cwnd).toBe(1)
     })
   })
 })
