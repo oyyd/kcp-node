@@ -1,9 +1,5 @@
-export { create } from './create'
-
-export function recv() {}
-
-export function send() {}
-
-export function update() {}
-
-export function check() {}
+export { create, setOutput, setWndSize } from './create'
+export { input } from './input'
+export { recv } from './recv'
+export { send } from './send'
+export { check, update } from './update'

@@ -110,3 +110,19 @@ export function setMtu(kcp, mtu) {
 
   return 0
 }
+
+export function setOutput(kcp, output) {
+  kcp.output = output
+}
+
+export function setWndSize(kcp, snd_wnd, rcv_wnd) {
+  if (kcp) {
+    if (snd_wnd > 0) {
+      kcp.snd_wnd = snd_wnd
+    }
+
+    if (rcv_wnd) {
+      kcp.rcv_wnd = rcv_wnd
+    }
+  }
+}
