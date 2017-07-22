@@ -134,6 +134,7 @@ export function putQueueToBuf(kcp, cwnd) {
   }
 
   kcp.snd_queue.splice(0, size)
+  kcp.snd_nxt += size
   kcp.nsnd_que -= size
   kcp.nsnd_buf += size
 }

@@ -11,6 +11,7 @@ import {
   getCurrent,
   update,
 } from '../index'
+import { decode } from './utils'
 
 function getTimeBufString(time) {
   const buf = Buffer.alloc(4)
@@ -30,7 +31,7 @@ describe('integration test', () => {
 
     output = jest.fn((buf, kcp, user) => {
       // eslint-disable-next-line
-      // console.log('buf', user, buf)
+      console.log(decode(buf))
       return network.send(user, buf)
     })
 
@@ -43,7 +44,7 @@ describe('integration test', () => {
     setWndSize(kcp2, 128, 128)
   })
 
-  it('should send one packet from a kcp and receive one from the other', () => {
+  it('should send two packet from a kcp and receive them from the other kcp', () => {
     const data = Buffer.alloc(2048, '11', 'hex')
     const current = getCurrent()
     // const size = data.length
@@ -84,6 +85,22 @@ describe('integration test', () => {
     input(kcp1, d)
 
     update(kcp1, current + 300)
+
+    d = network.recv(1, current + 400)
+
+    expect(d).toBeTruthy()
+
+    input(kcp2, d)
+
+    update(kcp2, current + 400)
+
+    d = network.recv(0, current + 500)
+
+    expect(d).toBeTruthy()
+
+    input(kcp1, d)
+
+    // console.log('kcp1', kcp1.snd_buf)
 
     // console.log('kcp1', kcp1)
     // console.log('recvData', recvData, kcp2)

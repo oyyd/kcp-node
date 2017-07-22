@@ -344,6 +344,7 @@ describe('update.js', () => {
       expect(kcp.snd_buf.every(item => item.cmd === IKCP_CMD_PUSH)).toBeTruthy()
       expect(kcp.nsnd_que).toBe(1)
       expect(kcp.nsnd_buf).toBe(2)
+      expect(kcp.snd_nxt).toBe(3)
     })
   })
 
