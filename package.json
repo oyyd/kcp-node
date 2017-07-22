@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "babel src --out-dir lib -w",
     "build": "babel src --out-dir lib",
+    "lint": "eslint src",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:single": "jest src/__tests__/packet.spec.js --watch"
   },
   "repository": {
     "type": "git",
@@ -45,6 +48,7 @@
       "no-mixed-operators": 0,
       "operator-assignment": 0,
       "no-bitwise": 0,
+      "prefer-template": 0,
       "import/prefer-default-export": 0
     },
     "env": {

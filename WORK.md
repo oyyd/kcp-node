@@ -11,3 +11,7 @@ KCP pure nodejs implementation.
   - but
 - All implementations by scripts are nearly impossible to be faster than tcp.
   - need experiments
+
+## Question
+
+- kcp->cwnd is zero if the `nc` is not set. Therefore no packets will be sended.

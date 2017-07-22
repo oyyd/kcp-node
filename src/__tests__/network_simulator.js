@@ -13,8 +13,8 @@ export class NetworkSimulator {
     this.nmax = nmax
     this.tx1 = 0
     this.tx2 = 0
-    this.c12 = 0
-    this.c21 = 0
+    this.c12 = -1
+    this.c21 = -1
     this.p12 = []
     this.p21 = []
   }
@@ -36,7 +36,7 @@ export class NetworkSimulator {
 
     const packet = {
       data,
-      ts: current + Math.random() * (this.rttmax - this.rttmin),
+      ts: current + Math.round(Math.random() * (this.rttmax - this.rttmin)),
     }
 
     if (peer === 0) {
@@ -46,16 +46,15 @@ export class NetworkSimulator {
     }
   }
 
-  recv(peer) {
-    if (peer === 0 && this.p12.length === 0 || peer === 1 && this.p21.length === 0) {
+  recv(peer, current = getCurrent()) {
+    if (peer === 0 && this.p21.length === 0 || peer === 1 && this.p12.length === 0) {
       return -1
     }
 
     const c12 = this.c12 + 1
     const c21 = this.c21 + 1
 
-    const packet = peer === 0 ? this.p12[c12] : this.p21[c21]
-    const current = getCurrent()
+    const packet = peer === 1 ? this.p12[c12] : this.p21[c21]
 
     if (current < packet.ts) {
       return -2
@@ -68,7 +67,7 @@ export class NetworkSimulator {
 
     const { data: d } = packet
 
-    if (peer === 0) {
+    if (peer === 1) {
       this.p12[this.c12] = null
       this.c12 = c12
     } else {

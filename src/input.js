@@ -248,6 +248,7 @@ export function input(kcp, buffer) {
   let flag = 0
   let maxack = 0
 
+
   while (offset < size) {
     if (size - offset < IKCP_OVERHEAD) {
       break

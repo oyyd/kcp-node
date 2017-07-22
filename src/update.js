@@ -275,6 +275,7 @@ export function flush(kcp) {
   kcp.probe = 0
 
   let cwnd = Math.min(kcp.snd_wnd, kcp.rmt_wnd)
+
   if (kcp.nocwnd === 0) {
     cwnd = Math.min(kcp.cwnd, cwnd)
   }
@@ -290,7 +291,7 @@ export function flush(kcp) {
   offset = res.offset
 
   if (offset > 0) {
-    outputBuf(kcp, kcp.buffer.slice(0, offset))
+    output(kcp, kcp.buffer.slice(0, offset))
   }
 
   setCwnd(kcp, change, lost, cwnd, resent)

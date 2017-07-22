@@ -1,5 +1,6 @@
-export { create, setOutput, setWndSize } from './create'
+export { create, setWndSize, setOutput, setNodelay } from './create'
 export { input } from './input'
 export { recv } from './recv'
 export { send } from './send'
 export { check, update } from './update'
+export { getCurrent } from './utils'

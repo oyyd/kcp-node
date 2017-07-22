@@ -1,18 +1,92 @@
 import { NetworkSimulator } from './network_simulator'
-import { create, setWndSize, setOutput } from '../create'
+import { IKCP_OVERHEAD } from '../create'
+import {
+  create,
+  setWndSize,
+  setOutput,
+  setNodelay,
+  input,
+  recv,
+  send,
+  getCurrent,
+  update,
+} from '../index'
+
+function getTimeBufString(time) {
+  const buf = Buffer.alloc(4)
+  buf.writeInt32BE(time)
+
+  return buf.toString('hex')
+}
 
 describe('integration test', () => {
   let kcp1
   let kcp2
   let network
+  let output
 
   beforeEach(() => {
-    network = new NetworkSimulator()
-    kcp1 = create(1)
-    kcp2 = create(2)
+    network = new NetworkSimulator(0)
+
+    output = jest.fn((buf, kcp, user) => {
+      // eslint-disable-next-line
+      // console.log('buf', user, buf)
+      return network.send(user, buf)
+    })
+
+    kcp1 = create(1, 0)
+    kcp2 = create(1, 1)
+
+    setOutput(kcp1, output)
+    setOutput(kcp2, output)
+    setWndSize(kcp1, 128, 128)
+    setWndSize(kcp2, 128, 128)
   })
 
   it('should send one packet from a kcp and receive one from the other', () => {
-    console.log('network', network)
+    const data = Buffer.alloc(2048, '11', 'hex')
+    const current = getCurrent()
+    // const size = data.length
+    expect(send(kcp1, data)).toBe(0)
+
+    // kcp.cwnv is zero
+    update(kcp1, current)
+    // kcp.cwnv is 1
+    update(kcp1, current + 120)
+
+    expect(output.mock.calls.length).toBe(1)
+    const buf = output.mock.calls[0][0]
+
+    let bufString = '0000000151010080' + getTimeBufString(current + 120) + '000000000000000000000560'
+      + '1111111111111111'
+
+    expect(buf.slice(0, IKCP_OVERHEAD + 8).toString('hex')).toBe(bufString)
+
+    let d = network.recv(1, current + 200)
+
+    expect(d.slice(0, IKCP_OVERHEAD + 8).toString('hex')).toBe(bufString)
+
+    input(kcp2, d)
+
+    const recvData = recv(kcp2)
+
+    // fragments are not completed
+    expect(recvData).toBe(-2)
+
+    update(kcp2, current + 200)
+
+    d = network.recv(0, current + 300)
+
+    bufString = '000000015200007f' + getTimeBufString(current + 120) + '000000000000000100000000'
+
+    expect(d.slice(0, IKCP_OVERHEAD).toString('hex')).toBe(bufString)
+
+    input(kcp1, d)
+
+    update(kcp1, current + 300)
+
+    // console.log('kcp1', kcp1)
+    // console.log('recvData', recvData, kcp2)
+    // console.log('kcp1', kcp1)
   })
 })

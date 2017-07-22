@@ -74,10 +74,16 @@ export const DEFAULT_KCPCB = {
 
 // TODO: maybe we don't need `user`
 export function create(conv, user) {
-  const instance = Object.assign({
+  const instance = Object.assign({}, DEFAULT_KCPCB, {
     conv,
     user,
-  }, DEFAULT_KCPCB)
+    buffer: Buffer.allocUnsafe((DEFAULT_KCPCB.mtu + IKCP_OVERHEAD) * 3),
+    snd_queue: [],
+    rcv_queue: [],
+    snd_buf: [],
+    rcv_buf: [],
+    acklist: [],
+  })
 
   return instance
 }
@@ -125,4 +131,35 @@ export function setWndSize(kcp, snd_wnd, rcv_wnd) {
       kcp.rcv_wnd = rcv_wnd
     }
   }
+}
+
+export function setNodelay(kcp, nodelay, interval, resend, nc) {
+  if (nodelay >= 0) {
+    kcp.nodelay = nodelay
+    if (nodelay) {
+      kcp.rx_minrto = IKCP_RTO_NDL
+    } else {
+      kcp.rx_minrto = IKCP_RTO_MIN
+    }
+  }
+
+  if (interval >= 0) {
+    if (interval > 5000) {
+      kcp.interval = 5000
+    } else if (interval < 10) {
+      kcp.interval = 10
+    } else {
+      kcp.interval = interval
+    }
+  }
+
+  if (resend >= 0) {
+    kcp.fastresend = resend
+  }
+
+  if (nc >= 0) {
+    kcp.nocwnd = nc
+  }
+
+  return 0
 }
