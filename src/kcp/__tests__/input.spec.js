@@ -20,6 +20,7 @@ describe('input.js', () => {
     }]
     kcpcb.snd_una = 1
     kcpcb.snd_nxt = 3
+    kcpcb.nsnd_buf = kcpcb.snd_buf.length
   })
 
   describe('updateAck', () => {
@@ -72,10 +73,13 @@ describe('input.js', () => {
     it('should drop acknowledged snd_buf', () => {
       parseUna(kcpcb, 1)
       expect(kcpcb.snd_buf.map(item => item.sn)).toEqual([1, 2, 3])
+      expect(kcpcb.nsnd_buf).toBe(3)
       parseUna(kcpcb, 3)
       expect(kcpcb.snd_buf.map(item => item.sn)).toEqual([3])
+      expect(kcpcb.nsnd_buf).toBe(1)
       parseUna(kcpcb, 4)
       expect(kcpcb.snd_buf.map(item => item.sn)).toEqual([])
+      expect(kcpcb.nsnd_buf).toBe(0)
     })
   })
 

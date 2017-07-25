@@ -31,7 +31,7 @@ describe('integration test', () => {
 
     output = jest.fn((buf, kcp, user) => {
       // eslint-disable-next-line
-      console.log(decode(buf))
+      // console.log(user, decode(buf))
       return network.send(user, buf)
     })
 
@@ -100,10 +100,15 @@ describe('integration test', () => {
 
     input(kcp1, d)
 
-    // console.log('kcp1', kcp1.snd_buf)
+    // console.log('kcp1', kcp1, kcp2)
 
-    // console.log('kcp1', kcp1)
-    // console.log('recvData', recvData, kcp2)
-    // console.log('kcp1', kcp1)
+    expect(kcp1.snd_queue.length).toBe(0)
+    expect(kcp1.snd_buf.length).toBe(0)
+    expect(kcp1.nsnd_que).toBe(0)
+    expect(kcp1.nsnd_buf).toBe(0)
+  })
+
+  describe('', () => {
+
   })
 })

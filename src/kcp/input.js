@@ -22,6 +22,7 @@ export function parseUna(kcp, una) {
 
   if (i !== 0) {
     kcp.snd_buf = kcp.snd_buf.slice(i)
+    kcp.nsnd_buf -= i
   }
 }
 
@@ -73,6 +74,7 @@ export function parseAck(kcp, sn) {
     const seg = kcp.snd_buf[cur]
 
     if (sn === seg.sn) {
+      // TODO:
       kcp.snd_buf.splice(cur, 1)
       kcp.nsnd_buf -= 1
       break
@@ -247,7 +249,6 @@ export function input(kcp, buffer) {
   let offset = 0
   let flag = 0
   let maxack = 0
-
 
   while (offset < size) {
     if (size - offset < IKCP_OVERHEAD) {
