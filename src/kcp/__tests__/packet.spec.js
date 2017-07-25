@@ -25,8 +25,10 @@ describe('integration test', () => {
   let kcp2
   let network
   let output
+  let data
 
   beforeEach(() => {
+    data = Buffer.alloc(2048, '11', 'hex')
     network = new NetworkSimulator(0)
 
     output = jest.fn((buf, kcp, user) => {
@@ -45,7 +47,6 @@ describe('integration test', () => {
   })
 
   it('should send two packet from a kcp and receive them from the other kcp', () => {
-    const data = Buffer.alloc(2048, '11', 'hex')
     const current = getCurrent()
     // const size = data.length
     expect(send(kcp1, data)).toBe(0)
@@ -100,15 +101,15 @@ describe('integration test', () => {
 
     input(kcp1, d)
 
-    // console.log('kcp1', kcp1, kcp2)
-
     expect(kcp1.snd_queue.length).toBe(0)
     expect(kcp1.snd_buf.length).toBe(0)
     expect(kcp1.nsnd_que).toBe(0)
     expect(kcp1.nsnd_buf).toBe(0)
   })
 
-  describe('', () => {
+  it('should retransmit when a kcpcb doesn\'t receive a ack for a long time', () => {
+    const current = getCurrent()
+
 
   })
 })
