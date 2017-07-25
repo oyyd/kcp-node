@@ -11,13 +11,25 @@ import {
   getCurrent,
   update,
 } from '../index'
-import { decode } from './utils'
+import { decode, decodeBufs } from './utils'
 
 function getTimeBufString(time) {
   const buf = Buffer.alloc(4)
   buf.writeInt32BE(time)
 
   return buf.toString('hex')
+}
+
+function getAllPackets(network, peer, current) {
+  const packets = []
+  let d = network.recv(1, current)
+
+  while (Buffer.isBuffer(d)) {
+    packets.push(d)
+    d = network.recv(1, current)
+  }
+
+  return packets
 }
 
 describe('integration test', () => {
@@ -33,8 +45,8 @@ describe('integration test', () => {
 
     output = jest.fn((buf, kcp, user) => {
       // eslint-disable-next-line
-      // console.log(user, decode(buf))
-      return network.send(user, buf)
+      // console.log('OUTPUT', decode(buf))
+      return network.send(user, buf, true)
     })
 
     kcp1 = create(1, 0)
@@ -89,7 +101,7 @@ describe('integration test', () => {
 
     d = network.recv(1, current + 400)
 
-    expect(d).toBeTruthy()
+    expect(Buffer.isBuffer(d)).toBeTruthy()
 
     input(kcp2, d)
 
@@ -97,7 +109,7 @@ describe('integration test', () => {
 
     d = network.recv(0, current + 500)
 
-    expect(d).toBeTruthy()
+    expect(Buffer.isBuffer(d)).toBeTruthy()
 
     input(kcp1, d)
 
@@ -107,9 +119,61 @@ describe('integration test', () => {
     expect(kcp1.nsnd_buf).toBe(0)
   })
 
-  it('should retransmit when a kcpcb doesn\'t receive a ack for a long time', () => {
-    const current = getCurrent()
+  it('should retransmit packets when a kcpcb doesn\'t receive a ack for a long time', () => {
+    data = Buffer.allocUnsafe(2048)
+    let current = getCurrent()
 
+    setNodelay(kcp1, 1, 0, 0, 1)
+    setNodelay(kcp2, 1, 0, 0, 1)
 
+    expect(send(kcp1, data)).toBe(0)
+
+    update(kcp1, current)
+
+    let d = network.recv(1, current + 40)
+
+    expect(Buffer.isBuffer(d)).toBeTruthy()
+
+    // assume data missing
+    network.clear(1)
+
+    current = kcp1.snd_buf[0].resendts - 10
+    update(kcp1, current)
+
+    d = network.recv(1, current)
+
+    expect(d).toBe(-1)
+
+    current = kcp1.snd_buf[0].resendts
+    update(kcp1, current)
+
+    let packets = getAllPackets(network, 1, current)
+    expect(packets.length).toBe(2)
+    expect(packets.map(item => decode(item).sn)).toEqual([0, 1])
+
+    expect(input(kcp2, Buffer.concat(packets))).toBe(0)
+
+    d = recv(kcp2)
+
+    expect(d.length).toBe(2048)
+    expect(data.toString('hex')).toEqual(d.toString('hex'))
+
+    current += 40
+    update(kcp2, current)
+
+    d = network.recv(0, current)
+
+    expect(decodeBufs(d).map(item => item.sn)).toEqual([0, 1])
+
+    input(kcp1, d)
+
+    expect(kcp1.nsnd_buf).toBe(0)
+    expect(kcp1.nsnd_que).toBe(0)
+    expect(kcp1.nrcv_que).toBe(0)
+    expect(kcp1.nrcv_buf).toBe(0)
+    expect(kcp2.nsnd_buf).toBe(0)
+    expect(kcp2.nsnd_que).toBe(0)
+    expect(kcp2.nrcv_que).toBe(0)
+    expect(kcp2.nrcv_buf).toBe(0)
   })
 })

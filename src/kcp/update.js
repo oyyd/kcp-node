@@ -19,6 +19,7 @@ export function output(kcp, buffer) {
     return 0
   }
 
+  // TODO: should copy buffer here
   // NOTE: the output api is different
   kcp.output(buffer, kcp, kcp.user)
   return 0
@@ -278,6 +279,7 @@ export function flush(kcp) {
   let cwnd = Math.min(kcp.snd_wnd, kcp.rmt_wnd)
 
   if (kcp.nocwnd === 0) {
+    // TODO: why cwnd?
     cwnd = Math.min(kcp.cwnd, cwnd)
   }
 

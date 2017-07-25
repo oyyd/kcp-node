@@ -1,4 +1,5 @@
 import { getCurrent } from '../utils'
+// import { decode } from './utils'
 
 function random100() {
   return Math.random() * 100
@@ -19,15 +20,15 @@ export class NetworkSimulator {
     this.p21 = []
   }
 
-  send(peer, data) {
+  send(peer, data, norandom) {
     if (peer === 0) {
       this.tx1 += 1
-      if (random100() < this.lostrate || this.p12.length >= this.nmax) {
+      if (!norandom && (random100() < this.lostrate || this.p12.length >= this.nmax)) {
         return
       }
     } else {
       this.tx2 += 1
-      if (random100() < this.lostrate || this.p21.length >= this.nmax) {
+      if (!norandom && (random100() < this.lostrate || this.p21.length >= this.nmax)) {
         return
       }
     }
@@ -35,7 +36,7 @@ export class NetworkSimulator {
     const current = getCurrent()
 
     const packet = {
-      data,
+      data: Buffer.from(data),
       ts: current + Math.round(Math.random() * (this.rttmax - this.rttmin)),
     }
 
@@ -47,7 +48,8 @@ export class NetworkSimulator {
   }
 
   recv(peer, current = getCurrent()) {
-    if (peer === 0 && this.p21.length === 0 || peer === 1 && this.p12.length === 0) {
+    if ((peer === 0 && this.c21 >= this.p21.length - 1)
+      || (peer === 1 && this.c12 >= this.p12.length - 1)) {
       return -1
     }
 
@@ -76,5 +78,19 @@ export class NetworkSimulator {
     }
 
     return d
+  }
+
+  clear(peer) {
+    if (peer === 0) {
+      this.p21 = []
+      this.tx1 = 0
+      this.c21 = -1
+    }
+
+    if (peer === 1) {
+      this.p12 = []
+      this.tx2 = 0
+      this.c12 = -1
+    }
   }
 }

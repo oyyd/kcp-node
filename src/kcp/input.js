@@ -235,6 +235,7 @@ export function updateCwnd(kcp, originalUna) {
   }
 }
 
+// TODO: accept buffers/packets here
 // @private
 export function input(kcp, buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < IKCP_OVERHEAD) {
@@ -244,8 +245,7 @@ export function input(kcp, buffer) {
   // the original una
   const originalUna = kcp.snd_una
 
-  // TODO: test the size and the offset
-  let size = buffer.length
+  const size = buffer.length
   let offset = 0
   let flag = 0
   let maxack = 0
@@ -271,10 +271,9 @@ export function input(kcp, buffer) {
       return -1
     }
 
-    size -= IKCP_OVERHEAD
     offset += IKCP_OVERHEAD
 
-    if (size < len) {
+    if (size - offset < len) {
       return -2
     }
 
@@ -302,7 +301,7 @@ export function input(kcp, buffer) {
       }
     } else if (cmd === IKCP_CMD_PUSH) {
       const seg = Object.assign(createSegment(), info, {
-        data: len > 0 ? buffer.slice(offset + IKCP_OVERHEAD, offset + IKCP_OVERHEAD + len) : null,
+        data: len > 0 ? buffer.slice(offset, offset + len) : null,
       })
 
       push(kcp, ts, sn, seg)
@@ -314,7 +313,6 @@ export function input(kcp, buffer) {
       return -3
     }
 
-    size -= len
     offset += len
   }
 
