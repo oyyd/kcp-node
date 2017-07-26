@@ -37,7 +37,7 @@ export class NetworkSimulator {
 
     const packet = {
       data: Buffer.from(data),
-      ts: current + Math.round(Math.random() * (this.rttmax - this.rttmin)),
+      ts: current + this.rttmin + Math.round(Math.random() * (this.rttmax - this.rttmin)),
     }
 
     if (peer === 0) {
@@ -58,13 +58,14 @@ export class NetworkSimulator {
 
     const packet = peer === 1 ? this.p12[c12] : this.p21[c21]
 
+    // console.log('current', current, packet.ts)
     if (current < packet.ts) {
       return -2
     }
 
-    if (peer === 0) {
-      console.log('c21', this.c21, c21)
-    }
+    // if (peer === 0) {
+    //   console.log('c21', this.c21, c21)
+    // }
 
     // NOTE: this condition should never be true
     // if (maxsize < packet.size) {

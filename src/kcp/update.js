@@ -1,3 +1,4 @@
+import assert from 'assert'
 import {
   IKCP_THRESH_MIN,
   IKCP_CMD_PUSH,
@@ -114,24 +115,38 @@ export function putQueueToBuf(kcp, cwnd) {
   // TODO: test
   // TODO: we somehow put data from snd_queue
   // to snd_buf
-  const rest = kcp.snd_una + cwnd - kcp.snd_nxt
+  const rest = Math.abs(kcp.snd_una + cwnd - kcp.snd_nxt)
+  // assert(kcp.nsnd_que >= 0, 'kcp.nsnd_que >= 0')
+  // assert(rest >= 0, `rest: ${rest} = kcp.snd_una: ${kcp.snd_una} + cwnd: ${cwnd} - kcp.snd_nxt: ${kcp.snd_nxt}`)
   const size = Math.min(rest, kcp.nsnd_que)
+
+  // assert(kcp.nsnd_buf >= 0, 'positive')
+  // assert(kcp.nsnd_buf === kcp.snd_buf.length, 'before')
+
+  if (rest === 0) {
+    return
+  }
 
   for (let i = 0; i < size; i += 1) {
     const seg = kcp.snd_queue[i]
 
-    // TODO:
-    try {
-      seg.conv = kcp.conv
-    } catch(e) {
-      console.log('seg', kcp.snd_queue.length, kcp.nsnd_que, size)
-      throw e
-    }
+    seg.conv = kcp.conv
     seg.cmd = IKCP_CMD_PUSH
     seg.wnd = seg.wnd
     seg.ts = kcp.current
     // where `sn` decided
     seg.sn = kcp.snd_nxt + i
+
+    // if (kcp.user === 1) {
+    //   console.log('seg.sn', seg.sn)
+    // }
+    //
+    // if (kcp.user === 1) {
+    //   assert(seg.sn === seg.data.readUInt32BE(0),
+    //     `seg.sn: ${seg.sn}, seg.data: ${seg.data.readUInt32BE(0)}
+    //     -> ${kcp.snd_queue.map(i => i.data.toString('hex'))}`)
+    // }
+
     seg.una = kcp.rcv_nxt
     seg.resendts = kcp.current
     seg.rto = kcp.rx_rto
@@ -145,6 +160,8 @@ export function putQueueToBuf(kcp, cwnd) {
   kcp.snd_nxt += size
   kcp.nsnd_que -= size
   kcp.nsnd_buf += size
+
+  // assert(kcp.nsnd_buf === kcp.snd_buf.length, `${kcp.nsnd_buf} - ${kcp.snd_buf.length} ${size}`)
 }
 
 // @private
@@ -232,7 +249,7 @@ export function setCwnd(kcp, change, lost, cwnd, resent) {
       kcp.ssthresh = IKCP_THRESH_MIN
     }
 
-    kcp.cwnd = kcp.ssthresh + resent
+    kcp.cwnd = kcp.ssthresh + ((resent === Infinity) ? -1 : resent)
     // TODO: where to use incr?
     kcp.incr = kcp.cwnd * kcp.mss
   }
@@ -294,7 +311,6 @@ export function flush(kcp) {
 
   putQueueToBuf(kcp, cwnd)
 
-  // TODO: nowhere to set fastresend
   const resent = kcp.fastresend > 0 ? kcp.fastresend : Infinity
   const rtomin = kcp.nodelay === 0 ? kcp.rx_rto >> 3 : 0
 

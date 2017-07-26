@@ -41,7 +41,7 @@ describe('integration test', () => {
 
   beforeEach(() => {
     data = Buffer.alloc(2048, '11', 'hex')
-    network = new NetworkSimulator(0)
+    network = new NetworkSimulator(0, 40, 40)
 
     // eslint-disable-next-line
     output = jest.fn((buf, kcp, user) => {

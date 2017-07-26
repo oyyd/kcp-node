@@ -66,16 +66,17 @@ function test(mode) {
     update(kcp2, current)
 
     for (; current >= slap; slap += 20) {
-      console.log('send')
       // eslint-disable-next-line
       buffer.writeUInt32BE(index++)
       buffer.writeUInt32BE(current, 4)
+
+      // console.log('write buf', buffer.slice(0, 8))
 
       send(kcp1, buffer.slice(0, 8))
     }
 
     while (true) {
-      const res = network.recv(1, buffer)
+      const res = network.recv(1)
       if (res < 0) {
         break
       }
@@ -83,7 +84,7 @@ function test(mode) {
     }
 
     while (true) {
-      const res = network.recv(0, buffer)
+      const res = network.recv(0)
       if (res < 0) {
         break
       }
@@ -109,9 +110,12 @@ function test(mode) {
       const ts = res.readUInt32BE(4)
       const rtt = current - ts
 
-      console.log('sn', sn, next, count)
+      // TODO: sn is different from
+      // console.log('res', res)
+      // console.log('sn', sn, next, count)
+
       if (sn !== next) {
-        console.log(`ERROR sn ${count}<->${next}\n`)
+        console.log(`ERROR sn ${sn}<->${next}\n`)
         return
       }
 
@@ -127,9 +131,7 @@ function test(mode) {
     }
 
     if (next <= 1000) {
-      setTimeout(() => {
-        process.nextTick(run)
-      }, 1)
+      process.nextTick(run)
     } else {
       printResult()
     }

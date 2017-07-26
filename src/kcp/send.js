@@ -66,13 +66,15 @@ export function send(kcp, buffer) {
     const seg = createSegment()
 
     if (buffer && len > 0) {
-      seg.data = buffer.slice(offset, offset + size)
+      // TODO: avoid unnecessary buffer copying
+      seg.data = Buffer.from(buffer.slice(offset, offset + size))
     }
 
     seg.len = size
     seg.frg = kcp.stream === 0 ? count - i - 1 : 0
     kcp.snd_queue.push(seg)
     kcp.nsnd_que += 1
+    assert(kcp.snd_queue.length === kcp.nsnd_que)
 
     if (buffer) {
       offset += size
