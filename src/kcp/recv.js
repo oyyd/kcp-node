@@ -53,11 +53,6 @@ export function popRcvContent(kcp) {
   const segSlice = kcp.rcv_queue.splice(0, i + 1)
   kcp.nrcv_que -= i + 1
 
-  // if (kcp.user === 0) {
-  //   console.log('output', segSlice.length, segSlice)
-  //   console.log('Buffer.concat(segSlice.map(seg => seg.data))', Buffer.concat(segSlice.map(seg => seg.data)))
-  // }
-
   return Buffer.concat(segSlice.map(seg => seg.data))
 }
 

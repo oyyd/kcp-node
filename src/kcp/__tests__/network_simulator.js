@@ -58,7 +58,6 @@ export class NetworkSimulator {
 
     const packet = peer === 1 ? this.p12[c12] : this.p21[c21]
 
-    // console.log('current', current, packet.ts)
     if (current < packet.ts) {
       return -2
     }

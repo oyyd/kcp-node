@@ -36,6 +36,7 @@ export const DEFAULT_KCPCB = {
   incr: 0,
   probe: 0,
   mtu: IKCP_MTU_DEF,
+  // TODO: nowhere api set stream
   stream: 0,
   mss: IKCP_MTU_DEF - IKCP_OVERHEAD,
   // TODO: two other fields not used

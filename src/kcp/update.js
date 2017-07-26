@@ -1,4 +1,3 @@
-import assert from 'assert'
 import {
   IKCP_THRESH_MIN,
   IKCP_CMD_PUSH,
@@ -112,20 +111,15 @@ export function outputProbe(kcp, seg, offset, flag, cmd) {
 
 // @private
 export function putQueueToBuf(kcp, cwnd) {
-  // TODO: test
   // TODO: we somehow put data from snd_queue
   // to snd_buf
-  const rest = Math.abs(kcp.snd_una + cwnd - kcp.snd_nxt)
-  // assert(kcp.nsnd_que >= 0, 'kcp.nsnd_que >= 0')
-  // assert(rest >= 0, `rest: ${rest} = kcp.snd_una: ${kcp.snd_una} + cwnd: ${cwnd} - kcp.snd_nxt: ${kcp.snd_nxt}`)
-  const size = Math.min(rest, kcp.nsnd_que)
+  const rest = kcp.snd_una + cwnd - kcp.snd_nxt
 
-  // assert(kcp.nsnd_buf >= 0, 'positive')
-  // assert(kcp.nsnd_buf === kcp.snd_buf.length, 'before')
-
-  if (rest === 0) {
+  if (rest <= 0) {
     return
   }
+
+  const size = Math.min(rest, kcp.nsnd_que)
 
   for (let i = 0; i < size; i += 1) {
     const seg = kcp.snd_queue[i]
@@ -136,16 +130,6 @@ export function putQueueToBuf(kcp, cwnd) {
     seg.ts = kcp.current
     // where `sn` decided
     seg.sn = kcp.snd_nxt + i
-
-    // if (kcp.user === 1) {
-    //   console.log('seg.sn', seg.sn)
-    // }
-    //
-    // if (kcp.user === 1) {
-    //   assert(seg.sn === seg.data.readUInt32BE(0),
-    //     `seg.sn: ${seg.sn}, seg.data: ${seg.data.readUInt32BE(0)}
-    //     -> ${kcp.snd_queue.map(i => i.data.toString('hex'))}`)
-    // }
 
     seg.una = kcp.rcv_nxt
     seg.resendts = kcp.current
@@ -160,8 +144,6 @@ export function putQueueToBuf(kcp, cwnd) {
   kcp.snd_nxt += size
   kcp.nsnd_que -= size
   kcp.nsnd_buf += size
-
-  // assert(kcp.nsnd_buf === kcp.snd_buf.length, `${kcp.nsnd_buf} - ${kcp.snd_buf.length} ${size}`)
 }
 
 // @private
@@ -187,7 +169,6 @@ export function outputBuf(kcp, wnd, offset, rtomin, resent) {
       segment.xmit += 1
       // TODO: kcp.xmit never used
       kcp.xmit += 1
-
       // TODO: this is different from how it explained
       if (kcp.nodelay === 0) {
         segment.rto += kcp.rx_rto
@@ -249,7 +230,7 @@ export function setCwnd(kcp, change, lost, cwnd, resent) {
       kcp.ssthresh = IKCP_THRESH_MIN
     }
 
-    kcp.cwnd = kcp.ssthresh + ((resent === Infinity) ? -1 : resent)
+    kcp.cwnd = kcp.ssthresh + resent
     // TODO: where to use incr?
     kcp.incr = kcp.cwnd * kcp.mss
   }
@@ -384,6 +365,7 @@ export function updateAndFlush(kcp, current, next) {
   }
 
   if (slap >= 0) {
+    // console.log('slap', kcp.ts_flush)
     // next flush time
     kcp.ts_flush += kcp.interval
 

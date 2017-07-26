@@ -15,6 +15,7 @@ function test(mode) {
   setOutput(kcp1, output)
   setOutput(kcp2, output)
 
+  const EXPECTED_COUNT = 1000
   let current = getCurrent()
   let slap = current + 20
   let index = 0
@@ -56,7 +57,7 @@ function test(mode) {
     const names = ['default', 'normal', 'fast']
 
     console.log(`${names[mode]} mode result (${ts1}ms):`)
-    console.log(`avgrtt=${sumrtt / count} maxrtt=${maxrtt} tx=${network.tx1}`)
+    console.log(`avgrtt=${Math.floor(sumrtt / count)} maxrtt=${maxrtt} tx=${network.tx1}`)
   }
 
   const run = () => {
@@ -66,13 +67,17 @@ function test(mode) {
     update(kcp2, current)
 
     for (; current >= slap; slap += 20) {
+      // if (sendCount >= EXPECTED_COUNT) {
+      //   break
+      // }
+
       // eslint-disable-next-line
       buffer.writeUInt32BE(index++)
       buffer.writeUInt32BE(current, 4)
 
-      // console.log('write buf', buffer.slice(0, 8))
-
       send(kcp1, buffer.slice(0, 8))
+
+      // sendCount += 1
     }
 
     while (true) {
@@ -114,6 +119,7 @@ function test(mode) {
       // console.log('res', res)
       // console.log('sn', sn, next, count)
 
+      // check the order
       if (sn !== next) {
         console.log(`ERROR sn ${sn}<->${next}\n`)
         return
@@ -128,9 +134,10 @@ function test(mode) {
       }
 
       console.log(`[RECV] mode=${mode} sn=${sn} rtt=${rtt}`)
+      // console.log(`[STATUS] ${kcp1.nsnd_que} ${kcp1.snd_queue.length}`)
     }
 
-    if (next <= 1000) {
+    if (next <= EXPECTED_COUNT) {
       process.nextTick(run)
     } else {
       printResult()
