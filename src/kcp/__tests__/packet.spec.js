@@ -1,5 +1,5 @@
 import { NetworkSimulator } from './network_simulator'
-import { IKCP_OVERHEAD } from '../create'
+import { IKCP_OVERHEAD, IKCP_DEADLINK } from '../create'
 import {
   create,
   setWndSize,
@@ -43,6 +43,7 @@ describe('integration test', () => {
     data = Buffer.alloc(2048, '11', 'hex')
     network = new NetworkSimulator(0)
 
+    // eslint-disable-next-line
     output = jest.fn((buf, kcp, user) => {
       // eslint-disable-next-line
       // console.log('OUTPUT', decode(buf))
@@ -147,10 +148,9 @@ describe('integration test', () => {
     current = kcp1.snd_buf[0].resendts
     update(kcp1, current)
 
-    let packets = getAllPackets(network, 1, current)
+    const packets = getAllPackets(network, 1, current)
     expect(packets.length).toBe(2)
     expect(packets.map(item => decode(item).sn)).toEqual([0, 1])
-
     expect(input(kcp2, Buffer.concat(packets))).toBe(0)
 
     d = recv(kcp2)
@@ -175,5 +175,37 @@ describe('integration test', () => {
     expect(kcp2.nsnd_que).toBe(0)
     expect(kcp2.nrcv_que).toBe(0)
     expect(kcp2.nrcv_buf).toBe(0)
+  })
+
+  it('should change `kcp.state` to -1 when a segment lost too may times', () => {
+    let current = getCurrent()
+
+    setNodelay(kcp1, 1, 0, 0, 1)
+    setNodelay(kcp2, 1, 0, 0, 1)
+
+    expect(send(kcp1, data)).toBe(0)
+    update(kcp1, current)
+
+    current += 40
+    const packets = getAllPackets(network, 1, current)
+
+    expect(packets.length).toBe(2)
+    expect(kcp1.snd_buf[0].xmit).toBe(1)
+    expect(kcp1.snd_buf[1].xmit).toBe(1)
+    expect(kcp1.state).toBe(0)
+
+    for (let i = 0; i < IKCP_DEADLINK - 2; i += 1) {
+      current = kcp1.snd_buf[0].resendts
+      update(kcp1, current)
+      expect(kcp1.snd_buf[0].xmit).toBe(i + 2)
+      expect(kcp1.snd_buf[1].xmit).toBe(i + 2)
+      expect(kcp1.state).toBe(0)
+    }
+
+    current = kcp1.snd_buf[0].resendts
+    update(kcp1, current)
+    expect(kcp1.snd_buf[0].xmit).toBe(IKCP_DEADLINK)
+    expect(kcp1.snd_buf[1].xmit).toBe(IKCP_DEADLINK)
+    expect(kcp1.state).toBe(-1)
   })
 })

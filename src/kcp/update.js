@@ -19,9 +19,9 @@ export function output(kcp, buffer) {
     return 0
   }
 
-  // TODO: should copy buffer here
+  // TODO: should copy buffer here?
   // NOTE: the output api is different
-  kcp.output(buffer, kcp, kcp.user)
+  kcp.output(Buffer.from(buffer), kcp, kcp.user)
   return 0
 }
 
@@ -119,7 +119,14 @@ export function putQueueToBuf(kcp, cwnd) {
 
   for (let i = 0; i < size; i += 1) {
     const seg = kcp.snd_queue[i]
-    seg.conv = kcp.conv
+
+    // TODO:
+    try {
+      seg.conv = kcp.conv
+    } catch(e) {
+      console.log('seg', kcp.snd_queue.length, kcp.nsnd_que, size)
+      throw e
+    }
     seg.cmd = IKCP_CMD_PUSH
     seg.wnd = seg.wnd
     seg.ts = kcp.current
@@ -161,6 +168,7 @@ export function outputBuf(kcp, wnd, offset, rtomin, resent) {
     } else if (current >= segment.resendts) {
       needsend = 1
       segment.xmit += 1
+      // TODO: kcp.xmit never used
       kcp.xmit += 1
 
       // TODO: this is different from how it explained
@@ -202,7 +210,8 @@ export function outputBuf(kcp, wnd, offset, rtomin, resent) {
       }
 
       if (segment.xmit >= kcp.dead_link) {
-        // TODO: for what
+        // NOTE: check state to assert the
+        // activation of a session
         kcp.state = -1
       }
     }

@@ -52,13 +52,17 @@ export function popRcvContent(kcp) {
 
   const segSlice = kcp.rcv_queue.splice(0, i + 1)
   kcp.nrcv_que -= i + 1
+  if (kcp.user === 1) {
+    console.log('output', segSlice.map(i => i.sn))
+    console.log('Buffer.concat(segSlice.map(seg => seg.data))', Buffer.concat(segSlice.map(seg => seg.data)))
+  }
   return Buffer.concat(segSlice.map(seg => seg.data))
 }
 
 // @private
 export function moveRcvBuf(kcp) {
   let i
-  const rcvBufLength = kcp.rcv_buf.length
+  const rcvBufLength = kcp.nrcv_buf
 
   for (i = 0; i < rcvBufLength; i += 1) {
     const seg = kcp.rcv_buf[i]
@@ -75,6 +79,8 @@ export function moveRcvBuf(kcp) {
   kcp.rcv_nxt += i
 }
 
+// TODO: should we support a length argument
+// to indecate the expected buffer length?
 // NOTE: the `buffer` is not a pointer
 // so we return a buffer directly
 export function recv(kcp) {

@@ -62,6 +62,10 @@ export class NetworkSimulator {
       return -2
     }
 
+    if (peer === 0) {
+      console.log('c21', this.c21, c21)
+    }
+
     // NOTE: this condition should never be true
     // if (maxsize < packet.size) {
     //   return -3
