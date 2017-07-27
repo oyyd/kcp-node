@@ -4,6 +4,8 @@ import { create, setOutput, getCurrent, setWndSize,
   setNodelay, update, input, recv, send } from '../index'
 import { NetworkSimulator } from './network_simulator'
 
+const EXPECTED_COUNT = 1000
+
 // NOTE: the gc may affect the results
 function test(mode) {
   const network = new NetworkSimulator(10, 60, 125)
@@ -15,7 +17,6 @@ function test(mode) {
   setOutput(kcp1, output)
   setOutput(kcp2, output)
 
-  const EXPECTED_COUNT = 1000
   let current = getCurrent()
   let slap = current + 20
   let index = 0
@@ -148,7 +149,7 @@ function test(mode) {
 }
 
 function main() {
-  test(0)
+  test(1)
 }
 
 main()

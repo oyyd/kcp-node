@@ -15,7 +15,7 @@ import { decode, decodeBufs } from './utils'
 
 function getTimeBufString(time) {
   const buf = Buffer.alloc(4)
-  buf.writeInt32BE(time)
+  buf.writeUInt32BE(time)
 
   return buf.toString('hex')
 }
