@@ -23,12 +23,14 @@ export class NetworkSimulator {
   send(peer, data, norandom) {
     if (peer === 0) {
       this.tx1 += 1
-      if (!norandom && (random100() < this.lostrate || this.p12.length >= this.nmax)) {
+      if (!norandom && (random100() < this.lostrate
+        || this.p12.length - this.c12 - 1 >= this.nmax)) {
         return
       }
     } else {
       this.tx2 += 1
-      if (!norandom && (random100() < this.lostrate || this.p21.length >= this.nmax)) {
+      if (!norandom && (random100() < this.lostrate
+        || this.p21.length - this.c21 - 1 >= this.nmax)) {
         return
       }
     }

@@ -118,6 +118,8 @@ export function putQueueToBuf(kcp, cwnd) {
   // TODO: we somehow put data from snd_queue
   // to snd_buf
   const rest = kcp.snd_una + cwnd - kcp.snd_nxt
+  // console.log('rest', kcp.user, `rest: ${rest} = snd_una: ${kcp.snd_una}
+  // + cwnd: ${cwnd} - snd_nxt: ${kcp.snd_nxt}`)
 
   if (rest <= 0) {
     return
@@ -289,8 +291,8 @@ export function flush(kcp) {
 
   let cwnd = Math.min(kcp.snd_wnd, kcp.rmt_wnd)
 
+  // do not controlled by the tcp cwnd
   if (kcp.nocwnd === 0) {
-    // TODO: why cwnd?
     cwnd = Math.min(kcp.cwnd, cwnd)
   }
 
