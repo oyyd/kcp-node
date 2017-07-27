@@ -2,7 +2,7 @@ import { IKCP_OVERHEAD, create } from '../create'
 import { readFromBuffer } from '../input'
 
 export function createTestKCP() {
-  return create(null, null)
+  return create(0, 0)
 }
 
 export function decode(buf) {

@@ -27,14 +27,18 @@ export function output(kcp, buffer) {
 
 // @private
 export function encodeSeg(buffer, offset, seg) {
-  buffer.writeInt32BE(seg.conv, offset + 0)
-  buffer.writeInt8(seg.cmd, offset + 4)
-  buffer.writeInt8(seg.frg, offset + 5)
-  buffer.writeInt16BE(seg.wnd, offset + 6)
-  buffer.writeInt32BE(seg.ts, offset + 8)
-  buffer.writeInt32BE(seg.sn, offset + 12)
-  buffer.writeInt32BE(seg.una, offset + 16)
-  buffer.writeInt32BE(seg.len, offset + 20)
+  if (offset + IKCP_OVERHEAD > buffer.length) {
+    throw new Error('invalid')
+  }
+
+  buffer.writeUInt32BE(seg.conv, offset + 0)
+  buffer.writeUInt8(seg.cmd, offset + 4)
+  buffer.writeUInt8(seg.frg, offset + 5)
+  buffer.writeUInt16BE(seg.wnd, offset + 6)
+  buffer.writeUInt32BE(seg.ts, offset + 8)
+  buffer.writeUInt32BE(seg.sn, offset + 12)
+  buffer.writeUInt32BE(seg.una, offset + 16)
+  buffer.writeUInt32BE(seg.len, offset + 20)
 }
 
 // @private
