@@ -19,9 +19,7 @@ export function output(kcp, buffer) {
     return 0
   }
 
-  // TODO: should copy buffer here?
-  // NOTE: the output api is different
-  kcp.output(Buffer.from(buffer), kcp, kcp.user)
+  kcp.output(buffer, kcp, kcp.user)
   return 0
 }
 
@@ -42,17 +40,14 @@ export function encodeSeg(buffer, offset, seg) {
 }
 
 // @private
-export function outputAcks(kcp, seg) {
+export function outputAcks(kcp, seg, offset = 0) {
   const { buffer } = kcp
 
   const count = kcp.ackcount
   let i = 0
-  // TODO: offset may should not start with 0
-  let offset = 0
 
   for (; i < count; i += 1) {
     if (offset + IKCP_OVERHEAD > kcp.mtu) {
-      // TODO: `output` shoud consume the buffer as it will be rewrite
       output(kcp, buffer.slice(0, offset))
       offset = 0
     }
@@ -115,8 +110,8 @@ export function outputProbe(kcp, seg, offset, flag, cmd) {
 
 // @private
 export function putQueueToBuf(kcp, cwnd) {
-  // TODO: we somehow put data from snd_queue
-  // to snd_buf
+  // NOTE: put data from snd_queue to snd_buf
+  // and then send them
   const rest = kcp.snd_una + cwnd - kcp.snd_nxt
   // console.log('rest', kcp.user, `rest: ${rest} = snd_una: ${kcp.snd_una}
   // + cwnd: ${cwnd} - snd_nxt: ${kcp.snd_nxt}`)
@@ -168,14 +163,13 @@ export function outputBuf(kcp, wnd, offset, rtomin, resent) {
       segment.xmit += 1
       segment.rto = kcp.rx_rto
       // NOTE: we don't plus rtomin if xmit is not 0
-      // TODO: why rotmin?
       segment.resendts = current + segment.rto + rtomin
     } else if (current >= segment.resendts) {
       needsend = 1
       segment.xmit += 1
-      // TODO: kcp.xmit never used
+      // NOTE: kcp.xmit is never used inside
       kcp.xmit += 1
-      // TODO: this is different from how it explained
+      // NOTE: this is different from how it's explained
       if (kcp.nodelay === 0) {
         segment.rto += kcp.rx_rto
       } else {
@@ -184,8 +178,8 @@ export function outputBuf(kcp, wnd, offset, rtomin, resent) {
 
       segment.resendts = current + segment.rto
       lost = 1
+    // resend if it's missed too many times
     } else if (segment.fastack >= resent) {
-      // TODO: make it more clear
       needsend = 1
       segment.xmit += 1
       segment.fastack = 0
@@ -231,13 +225,12 @@ export function setCwnd(kcp, change, lost, cwnd, resent) {
     const inflight = kcp.snd_nxt - kcp.snd_una
     kcp.ssthresh = Math.floor(inflight / 2)
 
-    // TODO: ssthresh
     if (kcp.ssthresh < IKCP_THRESH_MIN) {
       kcp.ssthresh = IKCP_THRESH_MIN
     }
 
     kcp.cwnd = kcp.ssthresh + resent
-    // TODO: where to use incr?
+    // NOTE: incr is not used inside
     kcp.incr = kcp.cwnd * kcp.mss
   }
 
@@ -260,9 +253,6 @@ export function setCwnd(kcp, change, lost, cwnd, resent) {
 
 // @private
 export function flush(kcp) {
-  // TODO: the allection is expensive especially when there is too many conenctions
-  // TODO: make sure the allocation is correct
-  // TODO: reassign a buffer at the end of flush
   if (kcp.updated === 0) {
     return
   }
@@ -280,7 +270,7 @@ export function flush(kcp) {
 
   let offset = 0
 
-  offset = outputAcks(kcp, seg)
+  offset = outputAcks(kcp, seg, offset)
 
   setProbe(kcp)
 

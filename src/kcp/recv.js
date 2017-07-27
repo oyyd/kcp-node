@@ -76,8 +76,6 @@ export function moveRcvBuf(kcp) {
   kcp.rcv_nxt += i
 }
 
-// TODO: should we support a length argument
-// to indecate the expected buffer length?
 // NOTE: the `buffer` is not a pointer
 // so we return a buffer directly
 export function recv(kcp) {
@@ -95,7 +93,6 @@ export function recv(kcp) {
   }
 
   if (kcp.nrcv_que >= kcp.rcv_wnd) {
-    // TODO:
     recover = 1
   }
 

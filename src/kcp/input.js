@@ -35,8 +35,6 @@ export function shrinkBuf(kcp) {
   }
 }
 
-// NOTE: I'm confused with how the tcp calculates a new rto.
-// TODO: check the rfc
 // @private
 export function updateAck(kcp, rtt) {
   let rto = 0
@@ -86,7 +84,6 @@ export function parseAck(kcp, sn) {
   }
 }
 
-// TODO: make sure the usage of acklist is correct
 // @private
 export function ackPush(kcp, sn, ts) {
   const newsize = kcp.ackcount + 1
@@ -170,7 +167,7 @@ export function parseFastack(kcp, sn) {
     if (sn < seg.sn) {
       break
     } else if (sn !== seg.sn) {
-      kcp.fastack += 1
+      seg.fastack += 1
     }
   }
 }
@@ -241,7 +238,6 @@ export function updateCwnd(kcp, originalUna) {
   }
 }
 
-// TODO: accept buffers/packets here
 // @private
 export function input(kcp, buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < IKCP_OVERHEAD) {
@@ -307,7 +303,8 @@ export function input(kcp, buffer) {
       }
     } else if (cmd === IKCP_CMD_PUSH) {
       const seg = Object.assign(createSegment(), info, {
-        // make sure we copy the buffer out
+        // NOTE: we only copy the buffer one time for a received seg
+        // here and never modify them inside a kcp cycle
         data: len > 0 ? Buffer.from(buffer.slice(offset, offset + len)) : null,
       })
 

@@ -1,4 +1,4 @@
-export { create, setWndSize, setOutput, setNodelay } from './create'
+export { create, setWndSize, setOutput, setNodelay, setOptions } from './create'
 export { input } from './input'
 export { recv } from './recv'
 export { send } from './send'

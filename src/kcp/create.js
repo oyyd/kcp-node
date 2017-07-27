@@ -36,11 +36,8 @@ export const DEFAULT_KCPCB = {
   incr: 0,
   probe: 0,
   mtu: IKCP_MTU_DEF,
-  // TODO: nowhere api set stream
   stream: 0,
   mss: IKCP_MTU_DEF - IKCP_OVERHEAD,
-  // TODO: two other fields not used
-  // TODO: we don't need buffer
   buffer: null,
   snd_queue: null,
   rcv_queue: null,
@@ -50,6 +47,7 @@ export const DEFAULT_KCPCB = {
   nsnd_buf: 0,
   nrcv_que: 0,
   nsnd_que: 0,
+
   state: 0,
   acklist: null,
   ackblock: 0,
@@ -63,22 +61,22 @@ export const DEFAULT_KCPCB = {
   ts_flush: IKCP_INTERVAL,
   nodelay: 0,
   updated: 0,
-  logmask: 0,
+  // logmask: 0,
   ssthresh: IKCP_THRESH_INIT,
   fastresend: 0,
   nocwnd: 0,
   xmit: 0,
   dead_link: IKCP_DEADLINK,
   output: null,
-  writelog: null,
+  // writelog: null,
 }
 
-// TODO: maybe we don't need `user`
 export function create(conv, user) {
   const instance = Object.assign({}, DEFAULT_KCPCB, {
     conv,
     user,
-    buffer: Buffer.allocUnsafe((DEFAULT_KCPCB.mtu + IKCP_OVERHEAD) * 3),
+    buffer: Buffer.allocUnsafe(DEFAULT_KCPCB.mtu + IKCP_OVERHEAD),
+    // buffer: Buffer.allocUnsafe((DEFAULT_KCPCB.mtu + IKCP_OVERHEAD) * 3),
     snd_queue: [],
     rcv_queue: [],
     snd_buf: [],
@@ -128,13 +126,13 @@ export function setWndSize(kcp, snd_wnd, rcv_wnd) {
       kcp.snd_wnd = snd_wnd
     }
 
-    if (rcv_wnd) {
+    if (rcv_wnd > 0) {
       kcp.rcv_wnd = rcv_wnd
     }
   }
 }
 
-export function setNodelay(kcp, nodelay, interval, resend, nc) {
+export function setNodelay(kcp, nodelay, interval, fastresend, nocwnd) {
   if (nodelay >= 0) {
     kcp.nodelay = nodelay
     if (nodelay) {
@@ -154,13 +152,35 @@ export function setNodelay(kcp, nodelay, interval, resend, nc) {
     }
   }
 
-  if (resend >= 0) {
-    kcp.fastresend = resend
+  if (fastresend >= 0) {
+    kcp.fastresend = fastresend
   }
 
-  if (nc >= 0) {
-    kcp.nocwnd = nc
+  if (nocwnd >= 0) {
+    kcp.nocwnd = nocwnd
   }
 
   return 0
+}
+
+const DIRECT_SETTING_PROPERTIES = [
+  'stream',
+  'rx_minrto',
+]
+
+export function setOptions(kcp, opt) {
+  const { nodelay = -1, interval = -1, fastresend = -1, nocwnd = -1 } = opt
+  setNodelay(kcp, nodelay, interval, fastresend, nocwnd)
+
+  const { snd_wnd = -1, rcv_wnd = -1 } = opt
+  setWndSize(kcp, snd_wnd, rcv_wnd)
+
+  const { mtu = -1 } = opt
+  setMtu(kcp, mtu)
+
+  DIRECT_SETTING_PROPERTIES.forEach((name) => {
+    if (opt[name] !== undefined) {
+      kcp[name] = opt[name]
+    }
+  })
 }

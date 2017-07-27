@@ -1,4 +1,12 @@
-import { setNodelay, setMtu, create, IKCP_OVERHEAD, IKCP_MTU_DEF, DEFAULT_KCPCB } from '../create'
+import {
+  setNodelay,
+  setMtu,
+  create,
+  setOptions,
+  IKCP_OVERHEAD,
+  IKCP_MTU_DEF,
+  DEFAULT_KCPCB,
+} from '../create'
 
 describe('create.js', () => {
   describe('create', () => {
@@ -37,6 +45,34 @@ describe('create.js', () => {
       expect(kcp.interval).toBe(200)
       expect(kcp.fastresend).toBe(1)
       expect(kcp.nocwnd).toBe(1)
+    })
+  })
+
+  describe('setOptions', () => {
+    it('should set kcp properties', () => {
+      const kcp = create(0, 0)
+
+      setOptions(kcp, {
+        nodelay: 1,
+        interval: 200,
+        fastresend: 3,
+        nocwnd: 1,
+        snd_wnd: 200,
+        rcv_wnd: 200,
+        mtu: 2000,
+        stream: 1,
+        rx_minrto: 5,
+      })
+
+      expect(kcp.nodelay).toBe(1)
+      expect(kcp.interval).toBe(200)
+      expect(kcp.fastresend).toBe(3)
+      expect(kcp.nocwnd).toBe(1)
+      expect(kcp.snd_wnd).toBe(200)
+      expect(kcp.rcv_wnd).toBe(200)
+      expect(kcp.mtu).toBe(2000)
+      expect(kcp.stream).toBe(1)
+      expect(kcp.rx_minrto).toBe(5)
     })
   })
 })

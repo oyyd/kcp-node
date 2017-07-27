@@ -66,7 +66,8 @@ export function send(kcp, buffer) {
     const seg = createSegment()
 
     if (buffer && len > 0) {
-      // TODO: avoid unnecessary buffer copying
+      // NOTE: we only copy the buffer one time for a segment data to be
+      // sent later here and never modify them inside a kcp cycle
       seg.data = Buffer.from(buffer.slice(offset, offset + size))
     }
 

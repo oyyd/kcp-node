@@ -173,23 +173,26 @@ describe('input.js', () => {
   })
 
   describe('parseFastack', () => {
-    it('should add extral count to the `fastack` according to the `maxack` and the snd_buf', () => {
+    it('should add extral count to the `fastack` of segments according to the `maxack` and the snd_buf', () => {
       kcpcb.snd_buf = [{
         sn: 4,
+        fastack: 0,
       }, {
         sn: 5,
+        fastack: 0,
       }, {
         sn: 6,
+        fastack: 0,
       }]
-      kcpcb.snd_una = 3
-      kcpcb.snd_nxt = 6
-      kcpcb.fastack = 3
 
-      const maxack = 5
+      kcpcb.snd_una = 3
+      kcpcb.snd_nxt = 7
+
+      const maxack = 6
 
       parseFastack(kcpcb, maxack)
 
-      expect(kcpcb.fastack).toBe(4)
+      expect(kcpcb.snd_buf.map(i => i.fastack)).toEqual([1, 1, 0])
     })
   })
 

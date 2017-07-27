@@ -3,7 +3,9 @@
 [![Build Status](https://travis-ci.org/oyyd/kcp-node.svg?branch=master)](https://travis-ci.org/oyyd/kcp-node)
 [![Coverage Status](https://coveralls.io/repos/github/oyyd/kcp-node/badge.svg?branch=master)](https://coveralls.io/github/oyyd/kcp-node?branch=master)
 
-## Features
+## Features / Main Dependencies
+
+- Performance -> More native Modules (the frequency of gc is the critial factor of performance to node)
 
 ## Environment
 
