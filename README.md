@@ -5,7 +5,7 @@
 
 ## Features / Main Dependencies
 
-- Performance -> More native Modules (the frequency of gc is the critial factor of performance to node)
+- Performance -> More native Modules (the frequency of gc is the critial factor for node)
 
 ## Environment
 
