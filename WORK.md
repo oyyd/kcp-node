@@ -33,3 +33,4 @@ KCP pure nodejs implementation.
 - kcp->cwnd is zero if the `nc` is not set. Therefore no packets will be sended.
 - default `sn` 0 indicate that the first segment will always be received
 - kcp.xmit never used
+- Encryption is how kcp-go refuses unauthorized connections so that we must use one in real world.

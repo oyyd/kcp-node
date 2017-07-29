@@ -1,4 +1,12 @@
-export { create, setWndSize, setOutput, setNodelay, setOptions } from './create'
+export {
+  IKCP_OVERHEAD,
+  create,
+  setWndSize,
+  setOutput,
+  setNodelay,
+  setOptions,
+  setMtu,
+} from './create'
 export { input } from './input'
 export { recv } from './recv'
 export { send } from './send'

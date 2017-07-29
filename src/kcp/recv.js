@@ -1,4 +1,3 @@
-import assert from 'assert'
 import { IKCP_ASK_TELL } from './create'
 import { isEmpty } from './utils'
 
@@ -6,8 +5,6 @@ import { isEmpty } from './utils'
 export function getPeeksize(kcp) {
   const queueLength = kcp.rcv_queue.length
   let length = 0
-
-  assert(kcp)
 
   if (isEmpty(kcp.rcv_queue)) {
     return -1

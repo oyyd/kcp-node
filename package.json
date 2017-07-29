@@ -11,7 +11,7 @@
     "test:inte": "npm run build && node lib/kcp/__tests__/packets.js",
     "test:travis": "jest --coverage && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
     "test:watch": "jest --watch",
-    "test:single": "jest src/kcp/__tests__/packet.spec.js --watch"
+    "test:single": "jest src/__tests__/sess_local.spec.js --watch"
   },
   "repository": {
     "type": "git",
@@ -55,7 +55,10 @@
       "no-mixed-operators": 0,
       "operator-assignment": 0,
       "no-bitwise": 0,
+      "no-shadow": 0,
       "prefer-template": 0,
+      "arrow-parens": 0,
+      "global-require": 0,
       "import/prefer-default-export": 0
     },
     "env": {
@@ -67,6 +70,7 @@
     "testRegex": "/src.*/__tests__/.*(test|spec)\\.jsx?$"
   },
   "dependencies": {
+    "crc": "^3.4.4",
     "cuint": "^0.2.2"
   }
 }

@@ -1,4 +1,3 @@
-import assert from 'assert'
 import { createSegment } from './create'
 import { isEmpty } from './utils'
 
@@ -28,8 +27,6 @@ export function appendToSeg(kcp, buffer, len) {
 }
 
 export function send(kcp, buffer) {
-  assert(kcp.mss > 0)
-
   let len = buffer.length
   let offset = 0
   // let seg
@@ -75,7 +72,6 @@ export function send(kcp, buffer) {
     seg.frg = kcp.stream === 0 ? count - i - 1 : 0
     kcp.snd_queue.push(seg)
     kcp.nsnd_que += 1
-    assert(kcp.snd_queue.length === kcp.nsnd_que)
 
     if (buffer) {
       offset += size
