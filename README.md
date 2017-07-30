@@ -29,15 +29,24 @@ node 6+
 
 ### KCP-GO Session Specification
 
-+---------------+-------------+-------------+-----+
-| NONCE(option) | CRC(option) | FEC(option) | KCP |
-+---------------+-------------+-------------+-----+
-|     16        |      4      |     8       |  2  |
-+---------------+-------------+-------------+-----+
+```
++-----------------+---------------+---------------+-----+
+| NONCE(optional) | CRC(optional) | FEC(optional) | KCP |
++-----------------+---------------+---------------+-----+
+|     16          |      4        |       8       |     |
++-----------------+---------------+---------------+-----+
+```
 
 ## Performance and Benchmark
 
+## About Multiplexing
+
+- Data that comes later have to wait previous data to be transmited.
+- New data don't have to probe appropriate window size again.
+
 ## Unsigned Timestamp Manipulation
+
+`getCurrent`
 
 ## Relatives
 

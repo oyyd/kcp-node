@@ -25,16 +25,6 @@ export function changeFlushStatus(sess, tsFlush, changed) {
   }
 }
 
-// @private
-export function encodeBuf() {
-
-}
-
-// @private
-export function decodeBuf() {
-
-}
-
 // Output data (of kcp) into udp.
 // @private
 export function output(sess, buf /* kcp, user */) {
