@@ -65,7 +65,7 @@ describe('pool.js', () => {
       let port
 
       const socket = pool.listen(0, (msg) => {
-        expect(msg.toString('hex')).toBe('0000ffff')
+        expect(msg.data.toString('hex')).toBe('0000ffff')
         done()
       }, () => {
         port = socket.address().port

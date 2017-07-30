@@ -1,5 +1,5 @@
 /**
- * Provide reliable stream communication by kcp.
+ * Provide reliable stream communications by kcp.
  *
  * A kcp socket is a duplex stream in nodejs.
  */
@@ -8,42 +8,90 @@ import { defaultUpdater } from './updater'
 import {
   create as createKCP,
   setOutput,
-  IKCP_OVERHEAD,
-  setMtu,
   input,
   send,
   recv,
-  getCurrent,
   check as checkKCP,
   update as updateKCP,
 } from './kcp'
+
+const DEFAULT_TIMEOUT = 10000
 
 // TODO: timeout and buf
 export class KCPSocket extends Duplex {
   constructor(duplexOptions, socketOptions) {
     super(duplexOptions)
 
-    const { pool, remoteAddr, remotePort } = socketOptions
+    const { conv, pool, remoteAddr, remotePort, timeout, user = 'socket' } = socketOptions
 
+    this.allowPush = false
+    this.user = user
+    this.timeout = timeout || DEFAULT_TIMEOUT
     this.closed = false
     this.changed = false
     this.tsFlush = 0
     this.remoteAddr = remoteAddr
     this.remotePort = remotePort
     this.pool = pool
-    this.conv = this.pool.newConv(remotePort, remoteAddr)
-    this.kcp = createKCP(this.conv)
+    // TODO:
+    this.conv = this.pool.newConv(remotePort, remoteAddr, conv)
+    this.kcp = createKCP(this.conv, user)
+    this.onMessage = this.onMessage.bind(this)
+    this.timer = null
 
     // bind kcp
-    this.pool.listenRemote(remotePort, remoteAddr, this.conv, (buf) => {
-      input(this.kcp, buf)
-    })
+    if (user === 'socket') {
+      this.pool.listenRemote(remotePort, remoteAddr, this.onMessage)
+    }
 
     setOutput(this.kcp, data => {
       this.pool.send(data, this.remotePort, this.remoteAddr)
     })
 
+    // checking timer
     defaultUpdater.addSocket(this)
+
+    // timeout
+    this.resetTimeout()
+  }
+
+  close(err = null) {
+    const { user, remotePort, remoteAddr, conv } = this
+
+    if (this.timer) {
+      clearTimeout(this.timer)
+    }
+
+    this.closed = true
+    this.pool.deleteConv(remotePort, remoteAddr, conv)
+    if (user === 'socket') {
+      this.pool.removeListener(remotePort, remoteAddr, this.onMessage)
+    }
+
+    // TODO: close kcp
+    // TODO: duplex
+    // this.destroy(err)
+    this.emit('close')
+  }
+
+  resetTimeout() {
+    if (this.timer) {
+      clearTimeout(this.timer)
+    }
+
+    this.timer = setTimeout(() => {
+      if (!this.closed) {
+        this.close('timeout')
+      }
+    }, this.timeout)
+  }
+
+  onMessage({ conv, data }) {
+    if (conv === this.conv) {
+      input(this.kcp, data)
+      this.tryToPush()
+      this.resetTimeout()
+    }
   }
 
   update(current) {
@@ -68,10 +116,20 @@ export class KCPSocket extends Duplex {
     }
   }
 
-  close() {
-    this.closed = true
-    // TODO: release conv
-    // TODO: release pool listening
+  tryToPush() {
+    if (!this.allowPush) {
+      return
+    }
+
+    const d = recv(this.kcp)
+
+    if (d === -1 || d === -2) {
+      return
+    }
+
+    if (!this.push(d)) {
+      this.allowPush = false
+    }
   }
 
   // NOTE: now we only accept buffer
@@ -89,17 +147,9 @@ export class KCPSocket extends Duplex {
     callback(err)
   }
 
+  // NOTE: stream is ready for receive data
   _read() {
-    const d = recv(this.kcp)
-
-    if (d === -1 || d === -2) {
-      return
-    }
-
-    this.push(d)
-  }
-
-  end() {
-
+    this.allowPush = true
+    this.tryToPush()
   }
 }

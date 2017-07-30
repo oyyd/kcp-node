@@ -40,8 +40,27 @@ describe('socket.js', () => {
 
       echoUDP.on('message', d => {
         expect(d.slice(IKCP_OVERHEAD).toString('hex')).toBe('ffffffff')
+        s1.close()
         done()
       })
     })
+
+    // it('should send more than one packets to the remote server', (done) => {
+    //   const s1 = new KCPSocket(null, {
+    //     remotePort: addr.port,
+    //     remoteAddr: addr.address,
+    //     pool,
+    //   })
+    //
+    //   const data = Buffer.alloc(4096, 'ff', 'hex')
+    //
+    //   s1.write(data)
+    //
+    //   echoUDP.on('message', d => {
+    //     console.log('d', d)
+    //     // expect(d.slice(IKCP_OVERHEAD).toString('hex')).toBe('ffffffff')
+    //     // done()
+    //   })
+    // })
   })
 })
