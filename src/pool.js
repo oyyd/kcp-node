@@ -2,12 +2,14 @@
  * Pool manage udp connections for:
  * 1. Sockets with a same destination don't bind extral local ports.
  * 2. Support crc, fec, data encoding/decoding.
+ * 3. Manage kcp conv.
  */
 import dgram from 'dgram'
 import { warn } from './log'
+import { getConv } from './kcp'
 
 // TODO: how to delete unused udp sockets
-
+const MAX_INT32 = 2147483647
 const WARN_LIMIT = 3000
 
 // @private
@@ -20,8 +22,26 @@ export function decodeBuf() {
 
 }
 
-function getId(port, address, local) {
+// @private
+export function getId(port, address, local) {
   return `${local ? 'l' : 'r'} ${port}:${address}`
+}
+
+function createKCPSocket() {
+  const socket = dgram.createSocket('udp4')
+
+  socket.on('message', (d) => {
+    // TODO: decode
+    const conv = getConv(d)
+
+    // TODO: do not need to decode if there is no listener
+    socket.emit('kcp_msg', {
+      conv,
+      data: d,
+    })
+  })
+
+  return socket
 }
 
 function getOrCreateSocket(pool, id) {
@@ -30,7 +50,7 @@ function getOrCreateSocket(pool, id) {
   if (connections[id]) {
     socket = connections[id]
   } else {
-    socket = dgram.createSocket('udp4')
+    socket = createKCPSocket()
     connections[id] = socket
     pool.connCounts += 1
 
@@ -41,6 +61,7 @@ function getOrCreateSocket(pool, id) {
   return socket
 }
 
+// TODO:
 export function listen(pool, localPort, onMessage, onListen) {
   const localAddr = '127.0.0.1'
   const id = getId(localPort, localAddr, true)
@@ -54,6 +75,17 @@ export function listen(pool, localPort, onMessage, onListen) {
   socket.on('message', onMessage)
 
   return socket
+}
+
+export function listenRemote(pool, remotePort, remoteAddr, conv, onMessage) {
+  const id = getId(remotePort, remoteAddr, false)
+  const socket = getOrCreateSocket(pool, id)
+
+  socket.on('kcp_msg', (msg) => {
+    if (msg.conv === conv) {
+      onMessage(msg.data)
+    }
+  })
 }
 
 export function removeSocket(pool, port, address, local) {
@@ -70,9 +102,15 @@ export function removeSocket(pool, port, address, local) {
   return false
 }
 
-export function send(pool, data, remotePort, remoteAddr, done) {
+export function getSocket(pool, remotePort, remoteAddr) {
   const id = getId(remotePort, remoteAddr, false)
   const socket = getOrCreateSocket(pool, id)
+
+  return socket
+}
+
+export function send(pool, data, remotePort, remoteAddr, done) {
+  const socket = getSocket(pool, remotePort, remoteAddr)
 
   // TODO: encode
   socket.send(data, remotePort, remoteAddr, done)
@@ -90,16 +128,71 @@ export function close(pool) {
   })
 }
 
+export function newConv(pool, remotePort, remoteAddr) {
+  const id = getId(remotePort, remoteAddr)
+  // NOTE: init socket
+  pool.getSocket(remotePort, remoteAddr)
+
+  if (!pool.kcpConv[id]) {
+    pool.kcpConv[id] = {
+      nextConv: 0,
+    }
+  }
+
+  const socketConv = pool.kcpConv[id]
+
+  const { nextConv } = socketConv
+  socketConv[nextConv] = true
+
+  let next = nextConv + 1
+
+  if (next === MAX_INT32) {
+    next = 0
+  }
+
+  for (let i = next; i < MAX_INT32; i += 1) {
+    if (!socketConv[i]) {
+      next = i
+      break
+    }
+  }
+
+  socketConv.nextConv = next
+
+  return nextConv
+}
+
+export function deleteConv(pool, remotePort, remoteAddr, conv) {
+  const id = getId(remotePort, remoteAddr)
+
+  if (!pool.kcpConv[id]) {
+    pool.kcpConv[id] = {
+      nextConv: 0,
+    }
+  }
+
+  const socketConv = pool.kcpConv[id]
+
+  delete socketConv[conv]
+}
+
 export function createPool() {
   // TODO: Encryption
   const pool = {
     connections: {},
     connCounts: 0,
+    kcpConv: {},
   }
 
   pool.send = send.bind(null, pool)
+  pool.getSocket = getSocket.bind(null, pool)
   pool.listen = listen.bind(null, pool)
+  pool.listenRemote = listenRemote.bind(null, pool)
   pool.close = close.bind(null, pool)
+  pool.newConv = newConv.bind(null, pool)
+  pool.deleteConv = deleteConv.bind(null, pool)
 
   return pool
 }
+
+export const defaultPool = createPool()

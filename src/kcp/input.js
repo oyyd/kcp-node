@@ -172,6 +172,10 @@ export function parseFastack(kcp, sn) {
   }
 }
 
+export function getConv(buffer) {
+  return buffer.readUInt32BE()
+}
+
 // @private
 export function readFromBuffer(buffer, offset) {
   return {

@@ -1,5 +1,5 @@
 import dgram from 'dgram'
-import { createPool } from '../pool'
+import { getId, createPool } from '../pool'
 
 describe('pool.js', () => {
   let echoUDP
@@ -18,6 +18,12 @@ describe('pool.js', () => {
       addr = echoUDP.address()
       done()
     })
+  })
+
+  afterEach((done) => {
+    if (echoUDP) {
+      echoUDP.close(done)
+    }
   })
 
   describe('createPool', () => {
@@ -67,6 +73,49 @@ describe('pool.js', () => {
         dgram.createSocket('udp4').send(Buffer.from('0000ffff', 'hex'), port)
       })
       expect(pool.connCounts).toBe(1)
+    })
+  })
+
+  describe('newConv', () => {
+    it('should return a conv that is not occupied', () => {
+      const remotePort = 123123
+      const remoteAddr = '127.0.0.1'
+      let conv = pool.newConv(remotePort, remoteAddr)
+
+      expect(conv).toBe(0)
+
+      conv = pool.newConv(remotePort, remoteAddr)
+
+      expect(conv).toBe(1)
+
+      conv = pool.newConv(remotePort, '192.168.0.1')
+
+      const id = getId(remotePort, remoteAddr)
+
+      pool.kcpConv[id][3] = true
+
+      conv = pool.newConv(remotePort, remoteAddr)
+
+      expect(conv).toBe(2)
+
+      conv = pool.newConv(remotePort, remoteAddr)
+
+      expect(conv).toBe(4)
+    })
+  })
+
+  describe('deleteConv', () => {
+    it('should delete a conv', () => {
+      const remotePort = 123123
+      const remoteAddr = '127.0.0.1'
+      const id = getId(remotePort, remoteAddr)
+      const conv = pool.newConv(remotePort, remoteAddr)
+
+      expect(pool.kcpConv[id][0]).toBe(true)
+
+      pool.deleteConv(remotePort, remoteAddr, conv)
+
+      expect(pool.kcpConv[id][0]).toBeFalsy()
     })
   })
 })

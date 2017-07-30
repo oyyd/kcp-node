@@ -4,6 +4,7 @@ KCP pure nodejs implementation.
 
 ## Phase 1
 
+- Work with `http` modules
 - kcp-node
   - udp session
 - benchmark

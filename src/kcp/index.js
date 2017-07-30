@@ -7,7 +7,7 @@ export {
   setOptions,
   setMtu,
 } from './create'
-export { input } from './input'
+export { input, getConv } from './input'
 export { recv } from './recv'
 export { send } from './send'
 export { check, update } from './update'
