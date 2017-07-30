@@ -1,4 +1,5 @@
 import dgram from 'dgram'
+import { IKCP_OVERHEAD } from '../kcp'
 import { createPool } from '../pool'
 import { KCPSocket } from '../socket'
 
@@ -28,14 +29,19 @@ describe('socket.js', () => {
   })
 
   describe('KCPSocket', () => {
-    it('should', () => {
-      const socket = new KCPSocket(null, {
-        remotePort: 12313,
-        remoteAddr: '127.0.0.1',
+    it('should write data to the remote server', (done) => {
+      const s1 = new KCPSocket(null, {
+        remotePort: addr.port,
+        remoteAddr: addr.address,
         pool,
       })
 
-      console.log('socket', socket)
+      s1.write(Buffer.from('ffffffff', 'hex'))
+
+      echoUDP.on('message', d => {
+        expect(d.slice(IKCP_OVERHEAD).toString('hex')).toBe('ffffffff')
+        done()
+      })
     })
   })
 })

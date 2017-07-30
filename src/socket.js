@@ -4,7 +4,7 @@
  * A kcp socket is a duplex stream in nodejs.
  */
 import { Duplex } from 'stream'
-import { createPool } from './pool'
+import { defaultUpdater } from './updater'
 import {
   create as createKCP,
   setOutput,
@@ -25,6 +25,9 @@ export class KCPSocket extends Duplex {
 
     const { pool, remoteAddr, remotePort } = socketOptions
 
+    this.closed = false
+    this.changed = false
+    this.tsFlush = 0
     this.remoteAddr = remoteAddr
     this.remotePort = remotePort
     this.pool = pool
@@ -39,9 +42,34 @@ export class KCPSocket extends Duplex {
     setOutput(this.kcp, data => {
       this.pool.send(data, this.remotePort, this.remoteAddr)
     })
+
+    defaultUpdater.addSocket(this)
+  }
+
+  update(current) {
+    const { changed } = this
+
+    // the `tsFlush` should be ingored and the `update/flush` should be called immediately
+    // if it's `changed` by ikcp_send or ikcp_input
+    if (!changed) {
+      if (this.tsFlush === 0) {
+        const ts = checkKCP(this.kcp, current)
+        this.tsFlush = ts
+      }
+
+      if (current >= this.tsFlush) {
+        this.tsFlush = 0
+        updateKCP(this.kcp, current)
+      }
+    } else {
+      this.tsFlush = 0
+      this.changed = false
+      updateKCP(this.kcp, current)
+    }
   }
 
   close() {
+    this.closed = true
     // TODO: release conv
     // TODO: release pool listening
   }
