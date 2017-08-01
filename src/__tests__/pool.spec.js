@@ -1,5 +1,6 @@
+import crypto from 'crypto'
 import dgram from 'dgram'
-import { getId, createPool } from '../pool'
+import { getId, createPool, decodeBuf } from '../pool'
 
 describe('pool.js', () => {
   let echoUDP
@@ -116,6 +117,45 @@ describe('pool.js', () => {
       pool.deleteConv(remotePort, remoteAddr, conv)
 
       expect(pool.kcpConv[id][0]).toBeFalsy()
+    })
+  })
+
+  describe('decodeBuf', () => {
+    const algorithm = 'aes-128-cbc'
+    const password = 'test'
+
+    it('should simply pass data if no `algorithm` is specified', (done) => {
+      const data = Buffer.from('ffffffff', 'hex')
+      const rinfo = {}
+
+      const next = jest.fn(() => {
+        expect(next.mock.calls.length).toBe(1)
+        expect(next.mock.calls[0][0]).toBe(data)
+        expect(next.mock.calls[0][1]).toBe(rinfo)
+        done()
+      })
+
+      decodeBuf({}, next, data, rinfo)
+    })
+
+    it('should encode the buffer is a `algorithm` is specified', (done) => {
+      const oriData = Buffer.from('ffffffffffffffffffffffffffffffff', 'hex')
+      const cipher = crypto.createCipher(algorithm, password)
+      const data = Buffer.concat([cipher.update(oriData), cipher.final()])
+
+      const rinfo = {}
+
+      const next = jest.fn(() => {
+        expect(next.mock.calls.length).toBe(1)
+        expect(next.mock.calls[0][0].toString('hex')).toBe(oriData.toString('hex'))
+        expect(next.mock.calls[0][1]).toBe(rinfo)
+        done()
+      })
+
+      decodeBuf({
+        algorithm,
+        password,
+      }, next, data, rinfo)
     })
   })
 })

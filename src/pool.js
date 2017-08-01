@@ -7,6 +7,7 @@
 import dgram from 'dgram'
 import { warn } from './log'
 import { getConv } from './kcp'
+import { encrypt, decrypt } from './encrypt'
 
 // TODO: how to delete unused udp sockets
 const MAX_INT32 = 2147483647
@@ -14,13 +15,25 @@ const WARN_LIMIT = 3000
 const WARN_LISTENER_LIMIT = 3000
 
 // @private
-export function encodeBuf() {
+export function decodeBuf(options, next, d, rinfo) {
+  const { algorithm, password } = options
 
+  if (!algorithm) {
+    return next(d, rinfo)
+  }
+
+  return next(decrypt(algorithm, password, d), rinfo)
 }
 
 // @private
-export function decodeBuf() {
+export function encodeBuf(options, next, d) {
+  const { algorithm, password } = options
 
+  if (!algorithm) {
+    return next(d)
+  }
+
+  return next(encrypt(algorithm, password, d))
 }
 
 // @private
@@ -28,13 +41,13 @@ export function getId(port, address, local) {
   return `${local ? 'l' : 'r'} ${port}:${address}`
 }
 
-function createKCPSocket() {
+export function createKCPSocket(options = {}) {
   const socket = dgram.createSocket('udp4')
 
+  // init
   socket.setMaxListeners(WARN_LISTENER_LIMIT)
 
-  socket.on('message', (d, rinfo) => {
-    // TODO: decode
+  socket.on('message', decodeBuf.bind(null, options, (d, rinfo) => {
     const conv = getConv(d)
 
     // TODO: do not need to decode if there is no listener
@@ -42,7 +55,7 @@ function createKCPSocket() {
       conv,
       data: d,
     }, rinfo)
-  })
+  }))
 
   return socket
 }

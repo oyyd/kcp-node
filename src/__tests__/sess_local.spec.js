@@ -1,7 +1,7 @@
 const { update, createSession } = require('../sess')
 
 describe('sess_local', () => {
-  it('should')
+  it('should', () => {})
   // it('should send data from one side the other side through sessions', (done) => {
   //   const a = createSession(1)
   //   const b = createSession(1)
