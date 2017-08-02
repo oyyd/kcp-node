@@ -24,7 +24,12 @@ export class Server extends EventEmitter {
   }
 
   close() {
+    const { kcpSockets } = this
 
+    Object.keys(kcpSockets).forEach((id) => {
+      const kcpSocket = kcpSockets[id]
+      kcpSocket.close()
+    })
   }
 
   createSocket(id, options) {
