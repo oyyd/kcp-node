@@ -1,6 +1,5 @@
-import crypto from 'crypto'
 import dgram from 'dgram'
-import { getId, createPool, decodeBuf } from '../pool'
+import { removeListener, listenRemote, getId, createPool, decodeBuf, encodeBuf } from '../pool'
 
 describe('pool.js', () => {
   let echoUDP
@@ -29,11 +28,11 @@ describe('pool.js', () => {
 
   describe('createPool', () => {
     it('should create pool that you can `send` dgram with same sockets when the remoteAddr and remotePort are the same', (done) => {
-      expect(pool.connCounts).toBe(0)
+      expect(pool.udpCount).toBe(0)
 
       let socket = pool.send(Buffer.from('0000ffff', 'hex'), addr.port, addr.address)
 
-      expect(pool.connCounts).toBe(1)
+      expect(pool.udpCount).toBe(1)
 
       const sendPromise = new Promise((resolve) => {
         const handle = (d) => {
@@ -48,7 +47,7 @@ describe('pool.js', () => {
       sendPromise.then(() => new Promise((resolve) => {
         socket = pool.send(Buffer.from('00000000', 'hex'), addr.port, addr.address)
 
-        expect(pool.connCounts).toBe(1)
+        expect(pool.udpCount).toBe(1)
 
         const handle = (d) => {
           expect(d.toString('hex')).toBe('00000000')
@@ -61,7 +60,7 @@ describe('pool.js', () => {
     })
 
     it('should support to call `listen` on the localPort directly', (done) => {
-      expect(pool.connCounts).toBe(0)
+      expect(pool.udpCount).toBe(0)
 
       let port
 
@@ -73,7 +72,7 @@ describe('pool.js', () => {
 
         dgram.createSocket('udp4').send(Buffer.from('0000ffff', 'hex'), port)
       })
-      expect(pool.connCounts).toBe(1)
+      expect(pool.udpCount).toBe(1)
     })
   })
 
@@ -140,22 +139,48 @@ describe('pool.js', () => {
 
     it('should encode the buffer is a `algorithm` is specified', (done) => {
       const oriData = Buffer.from('ffffffffffffffffffffffffffffffff', 'hex')
-      const cipher = crypto.createCipher(algorithm, password)
-      const data = Buffer.concat([cipher.update(oriData), cipher.final()])
-
       const rinfo = {}
 
-      const next = jest.fn(() => {
-        expect(next.mock.calls.length).toBe(1)
-        expect(next.mock.calls[0][0].toString('hex')).toBe(oriData.toString('hex'))
-        expect(next.mock.calls[0][1]).toBe(rinfo)
+      const decodeNext = jest.fn(() => {
+        expect(decodeNext.mock.calls.length).toBe(1)
+        expect(decodeNext.mock.calls[0][0].toString('hex')).toBe(oriData.toString('hex'))
+        expect(decodeNext.mock.calls[0][1]).toBe(rinfo)
         done()
       })
 
-      decodeBuf({
+      const encodeNext = jest.fn((buf) => {
+        decodeBuf({
+          algorithm,
+          password,
+        }, decodeNext, buf, rinfo)
+      })
+
+      encodeBuf({
         algorithm,
         password,
-      }, next, data, rinfo)
+      }, encodeNext, oriData)
+    })
+
+    it('should remove a udp binding if there the usingCount is zero', () => {
+      const listener1 = () => {}
+      const listener2 = () => {}
+
+      const socketInfo1 = listenRemote(pool, addr.port, addr.address, listener1)
+
+      expect(socketInfo1.usingCount).toBe(1)
+
+      const socketInfo2 = listenRemote(pool, addr.port, addr.address, listener2)
+
+      expect(socketInfo1).toBe(socketInfo2)
+      expect(socketInfo1.usingCount).toBe(2)
+
+      removeListener(pool, addr.port, addr.address, listener1)
+      expect(socketInfo1.usingCount).toBe(1)
+      removeListener(pool, addr.port, addr.address, listener2)
+      expect(socketInfo1.usingCount).toBe(0)
+
+      expect(Object.keys(pool.connections).length).toBe(0)
+      expect(pool.udpCount).toBe(0)
     })
   })
 })

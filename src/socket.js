@@ -55,7 +55,7 @@ export class KCPSocket extends Duplex {
     this.resetTimeout()
   }
 
-  close(err = null) {
+  close(errStr = null) {
     const { user, remotePort, remoteAddr, conv } = this
 
     if (this.timer) {
@@ -71,7 +71,7 @@ export class KCPSocket extends Duplex {
     // TODO: close kcp
     // TODO: duplex
     // this.destroy(err)
-    this.emit('close')
+    this.emit('close', errStr)
   }
 
   resetTimeout() {

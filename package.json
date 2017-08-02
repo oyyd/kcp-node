@@ -23,6 +23,9 @@
     "url": "https://github.com/oyyd/kcp-node/issues"
   },
   "homepage": "https://github.com/oyyd/kcp-node#readme",
+  "dependencies": {
+    "crc": "^3.4.4"
+  },
   "devDependencies": {
     "babel-cli": "^6.24.1",
     "babel-jest": "^20.0.3",
@@ -68,9 +71,5 @@
   },
   "jest": {
     "testRegex": "/src.*/__tests__/.*(test|spec)\\.jsx?$"
-  },
-  "dependencies": {
-    "crc": "^3.4.4",
-    "cuint": "^0.2.2"
   }
 }

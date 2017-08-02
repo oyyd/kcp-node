@@ -45,22 +45,19 @@ describe('socket.js', () => {
       })
     })
 
-    // it('should send more than one packets to the remote server', (done) => {
-    //   const s1 = new KCPSocket(null, {
-    //     remotePort: addr.port,
-    //     remoteAddr: addr.address,
-    //     pool,
-    //   })
-    //
-    //   const data = Buffer.alloc(4096, 'ff', 'hex')
-    //
-    //   s1.write(data)
-    //
-    //   echoUDP.on('message', d => {
-    //     console.log('d', d)
-    //     // expect(d.slice(IKCP_OVERHEAD).toString('hex')).toBe('ffffffff')
-    //     // done()
-    //   })
-    // })
+    it('should be closed and emit an "close" event when times out', (done) => {
+      const s1 = new KCPSocket(null, {
+        remotePort: addr.port,
+        remoteAddr: addr.address,
+        timeout: 50,
+        pool,
+      })
+
+      s1.on('close', () => {
+        done()
+      })
+
+      s1.write(Buffer.from('ffffffff', 'hex'))
+    })
   })
 })

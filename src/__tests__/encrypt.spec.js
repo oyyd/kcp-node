@@ -1,17 +1,17 @@
-import { encrypt, decrypt } from '../encrypt'
+import { createCipher, createDecipher } from '../encrypt'
 
 const algorithm = 'aes-128-cbc'
 const password = 'test'
 
 describe('encrypt.js', () => {
-  describe('encrypt&descrypt', () => {
+  describe('createCipher & createDecipher', () => {
     it('should encrypt and decrypt', () => {
       const originalData = Buffer.alloc(1024, 'ff', 'hex')
-      const cph = encrypt(algorithm, password, originalData)
+      const cph = createCipher(algorithm, password, originalData)
 
       expect(originalData.toString('hex')).not.toBe(cph.toString('hex'))
 
-      const dcph = decrypt(algorithm, password, cph)
+      const dcph = createDecipher(algorithm, password, cph)
       expect(dcph.toString('hex')).toBe(originalData.toString('hex'))
     })
   })

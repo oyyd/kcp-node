@@ -41,13 +41,14 @@ export function getId(port, address, local) {
   return `${local ? 'l' : 'r'} ${port}:${address}`
 }
 
-export function createKCPSocket(options = {}) {
+// TODO: allow modifying buffer from outside
+export function createKCPSocket(pool) {
   const socket = dgram.createSocket('udp4')
 
   // init
   socket.setMaxListeners(WARN_LISTENER_LIMIT)
 
-  socket.on('message', decodeBuf.bind(null, options, (d, rinfo) => {
+  socket.on('message', decodeBuf.bind(null, pool, (d, rinfo) => {
     const conv = getConv(d)
 
     // TODO: do not need to decode if there is no listener
@@ -60,28 +61,33 @@ export function createKCPSocket(options = {}) {
   return socket
 }
 
-function getOrCreateSocket(pool, id) {
+function getOrCreateSocketInfo(pool, id) {
   const { connections } = pool
-  let socket
+  let socketInfo
   if (connections[id]) {
-    socket = connections[id]
+    socketInfo = connections[id]
   } else {
-    socket = createKCPSocket()
-    connections[id] = socket
-    pool.connCounts += 1
+    const socket = createKCPSocket(pool)
+    socketInfo = {
+      socket,
+      usingCount: 0,
+    }
+    connections[id] = socketInfo
+    pool.udpCount += 1
 
-    if (pool.connCounts > WARN_LIMIT) {
-      warn(`Too many udp sockets: ${pool.connCounts}`)
+    if (pool.udpCount > WARN_LIMIT) {
+      warn(`Too many udp sockets: ${pool.udpCount}`)
     }
   }
-  return socket
+  return socketInfo
 }
 
 export function listen(pool, localPort, onMessage, onListen) {
   const localAddr = '127.0.0.1'
   const id = getId(localPort, localAddr, true)
 
-  const socket = getOrCreateSocket(pool, id)
+  const socketInfo = getOrCreateSocketInfo(pool, id)
+  const socket = socketInfo.socket
 
   socket.bind(localPort, onListen)
 
@@ -89,44 +95,61 @@ export function listen(pool, localPort, onMessage, onListen) {
   // TODO: decode
   socket.on('kcp_msg', onMessage)
 
+  socketInfo.usingCount += 1
   return socket
 }
 
 export function listenRemote(pool, remotePort, remoteAddr, onMessage) {
   const id = getId(remotePort, remoteAddr, false)
-  const socket = getOrCreateSocket(pool, id)
+  const socketInfo = getOrCreateSocketInfo(pool, id)
+  const socket = socketInfo.socket
 
   socket.on('kcp_msg', onMessage)
+
+  socketInfo.usingCount += 1
+
+  return socketInfo
 }
 
-export function removeListener(pool, remotePort, remoteAddr, onMessage) {
-  const id = getId(remotePort, remoteAddr, false)
-  const socket = getOrCreateSocket(pool, id)
+export function removeSocket(pool, id) {
+  const socketInfo = pool.connections[id]
 
-  socket.removeListener('kcp_msg', onMessage)
-}
+  if (!socketInfo) {
+    return false
+  }
 
-export function removeSocket(pool, port, address, local) {
-  const id = getId(port, address, local)
-  const socket = pool.connections[id]
+  const { socket } = socketInfo
 
   if (socket) {
     socket.close()
     delete pool.connections[id]
-    pool.connCounts -= 1
-    return true
+    pool.udpCount -= 1
   }
 
-  return false
+  return true
+}
+
+export function removeListener(pool, remotePort, remoteAddr, onMessage) {
+  const id = getId(remotePort, remoteAddr, false)
+  const socketInfo = getOrCreateSocketInfo(pool, id)
+  const socket = socketInfo.socket
+
+  socket.removeListener('kcp_msg', onMessage)
+  socketInfo.usingCount -= 1
+
+  if (socketInfo.usingCount === 0) {
+    removeSocket(pool, id)
+  }
 }
 
 export function getSocket(pool, remotePort, remoteAddr) {
   const id = getId(remotePort, remoteAddr, false)
-  const socket = getOrCreateSocket(pool, id)
+  const socket = getOrCreateSocketInfo(pool, id).socket
 
   return socket
 }
 
+// TODO: Make sure sockets created for sending are closed correctly.
 export function send(pool, data, remotePort, remoteAddr, done) {
   const socket = getSocket(pool, remotePort, remoteAddr)
 
@@ -139,11 +162,7 @@ export function send(pool, data, remotePort, remoteAddr, done) {
 export function clear(pool) {
   const { connections } = pool
 
-  Object.keys(connections).forEach((id) => {
-    const socket = connections[id]
-
-    socket.close()
-  })
+  Object.keys(connections).forEach((id) => removeSocket(pool, id))
 }
 
 export function newConv(pool, remotePort, remoteAddr, conv) {
@@ -200,13 +219,16 @@ export function deleteConv(pool, remotePort, remoteAddr, conv) {
   delete socketConv[conv]
 }
 
-export function createPool() {
+export function createPool(options) {
   // TODO: Encryption
-  const pool = {
+  const pool = Object.assign({
+    algorithm: null,
+    password: null,
+  }, options, {
     connections: {},
-    connCounts: 0,
+    udpCount: 0,
     kcpConv: {},
-  }
+  })
 
   pool.send = send.bind(null, pool)
   pool.getSocket = getSocket.bind(null, pool)
