@@ -1,5 +1,6 @@
 export {
   IKCP_OVERHEAD,
+  IKCP_MTU_DEF,
   create,
   setWndSize,
   setOutput,

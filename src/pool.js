@@ -6,19 +6,23 @@
  */
 import dgram from 'dgram'
 import { warn } from './log'
-import { getConv } from './kcp'
-import { encrypt, decrypt } from './encrypt'
+import { getConv, IKCP_MTU_DEF } from './kcp'
+import { encrypt, decrypt, ENCRYPTED_EXPAND_SIZE } from './encrypt'
 
-// TODO: how to delete unused udp sockets
 const MAX_INT32 = 2147483647
 const WARN_LIMIT = 3000
 const WARN_LISTENER_LIMIT = 3000
+
+function useEncryption(pool) {
+  const { algorithm, password } = pool
+  return algorithm && password
+}
 
 // @private
 export function decodeBuf(options, next, d, rinfo) {
   const { algorithm, password } = options
 
-  if (!algorithm) {
+  if (!useEncryption(options)) {
     return next(d, rinfo)
   }
 
@@ -29,7 +33,7 @@ export function decodeBuf(options, next, d, rinfo) {
 export function encodeBuf(options, next, d) {
   const { algorithm, password } = options
 
-  if (!algorithm) {
+  if (!useEncryption(options)) {
     return next(d)
   }
 
@@ -220,8 +224,8 @@ export function deleteConv(pool, remotePort, remoteAddr, conv) {
 }
 
 export function createPool(options) {
-  // TODO: Encryption
   const pool = Object.assign({
+    // default options
     algorithm: null,
     password: null,
   }, options, {
@@ -238,6 +242,8 @@ export function createPool(options) {
   pool.newConv = newConv.bind(null, pool)
   pool.deleteConv = deleteConv.bind(null, pool)
   pool.removeListener = removeListener.bind(null, pool)
+
+  pool.kcpMTUSize = IKCP_MTU_DEF - (useEncryption(pool) ? ENCRYPTED_EXPAND_SIZE : 0)
 
   return pool
 }

@@ -13,7 +13,9 @@ import {
   recv,
   check as checkKCP,
   update as updateKCP,
+  setMtu,
 } from './kcp'
+import { setKCPMode } from './mode'
 
 const DEFAULT_TIMEOUT = 10000
 
@@ -21,7 +23,20 @@ export class KCPSocket extends Duplex {
   constructor(duplexOptions, socketOptions) {
     super(duplexOptions)
 
-    const { conv, pool, remoteAddr, remotePort, timeout, user = 'socket' } = socketOptions
+    const {
+      // required
+      pool,
+      // required
+      remoteAddr,
+      // required
+      remotePort,
+      // optional
+      conv,
+      // optional
+      user = 'socket',
+      // optional
+      timeout,
+    } = socketOptions
 
     this.allowPush = false
     this.user = user
@@ -32,11 +47,14 @@ export class KCPSocket extends Duplex {
     this.remoteAddr = remoteAddr
     this.remotePort = remotePort
     this.pool = pool
-    // TODO:
+    this.timer = null
     this.conv = this.pool.newConv(remotePort, remoteAddr, conv)
+
+    // init kcp
     this.kcp = createKCP(this.conv, user)
     this.onMessage = this.onMessage.bind(this)
-    this.timer = null
+    setKCPMode(this.kcp)
+    setMtu(this.kcp, this.pool.kcpMTUSize)
 
     // bind kcp
     if (user === 'socket') {

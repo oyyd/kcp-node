@@ -59,5 +59,22 @@ describe('socket.js', () => {
 
       s1.write(Buffer.from('ffffffff', 'hex'))
     })
+
+    it('should set kcp mtu according to the `kcpMTUSize` from the pool', () => {
+      const encryptedPool = createPool({
+        algorithm: 'test',
+        password: 'test',
+      })
+
+      const socket = new KCPSocket(null, {
+        remotePort: addr.port,
+        remoteAddr: addr.address,
+        timeout: 50,
+        pool: encryptedPool,
+      })
+
+      expect(socket.kcp.mtu).toBe(1380)
+      expect(socket.kcp.mss).toBe(1356)
+    })
   })
 })

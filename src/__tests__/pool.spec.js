@@ -74,6 +74,17 @@ describe('pool.js', () => {
       })
       expect(pool.udpCount).toBe(1)
     })
+
+    it('should export kcpMTUSize', () => {
+      expect(pool.kcpMTUSize).toBe(1400)
+
+      const encryptedPool = createPool({
+        algorithm: 'test',
+        password: 'test',
+      })
+
+      expect(encryptedPool.kcpMTUSize).toBe(1380)
+    })
   })
 
   describe('newConv', () => {
