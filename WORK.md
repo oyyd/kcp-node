@@ -2,6 +2,15 @@
 
 KCP pure nodejs implementation.
 
+## Benchmark
+
+- Why
+  - Measure
+- What
+  - KCP
+  - Encryption
+  - Socket
+
 ## Phase 1
 
 - Work with `http` modules

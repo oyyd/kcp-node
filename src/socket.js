@@ -17,7 +17,6 @@ import {
 
 const DEFAULT_TIMEOUT = 10000
 
-// TODO: timeout and buf
 export class KCPSocket extends Duplex {
   constructor(duplexOptions, socketOptions) {
     super(duplexOptions)
