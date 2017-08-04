@@ -24,44 +24,42 @@ export function output(kcp, buffer) {
 }
 
 // @private
-export function encodeSeg(buffer, offset, seg) {
-  if (offset + IKCP_OVERHEAD > buffer.length) {
-    throw new Error('invalid')
-  }
+export function createSegBuf(seg) {
+  const buffer = Buffer.allocUnsafe(IKCP_OVERHEAD)
+  buffer.writeUInt32BE(seg.conv, 0)
+  buffer.writeUInt8(seg.cmd, 4)
+  buffer.writeUInt8(seg.frg, 5)
+  buffer.writeUInt16BE(seg.wnd, 6)
+  buffer.writeUInt32BE(seg.ts, 8)
+  buffer.writeUInt32BE(seg.sn, 12)
+  buffer.writeUInt32BE(seg.una, 16)
+  buffer.writeUInt32BE(seg.len, 20)
 
-  buffer.writeUInt32BE(seg.conv, offset + 0)
-  buffer.writeUInt8(seg.cmd, offset + 4)
-  buffer.writeUInt8(seg.frg, offset + 5)
-  buffer.writeUInt16BE(seg.wnd, offset + 6)
-  buffer.writeUInt32BE(seg.ts, offset + 8)
-  buffer.writeUInt32BE(seg.sn, offset + 12)
-  buffer.writeUInt32BE(seg.una, offset + 16)
-  buffer.writeUInt32BE(seg.len, offset + 20)
+  return buffer
 }
 
 // @private
-export function outputAcks(kcp, seg, offset = 0) {
-  const { buffer } = kcp
+export function outputAcks(kcp, seg) {
+  let buffer = kcp.buffer
 
   const count = kcp.ackcount
   let i = 0
 
   for (; i < count; i += 1) {
-    if (offset + IKCP_OVERHEAD > kcp.mtu) {
-      output(kcp, buffer.slice(0, offset))
-      offset = 0
+    if (buffer.length + IKCP_OVERHEAD > kcp.mtu) {
+      output(kcp, buffer)
+      buffer = Buffer.allocUnsafe(0)
     }
 
     seg.sn = kcp.acklist[i * 2]
     seg.ts = kcp.acklist[i * 2 + 1]
 
-    encodeSeg(buffer, offset, seg)
-    offset += IKCP_OVERHEAD
+    buffer = Buffer.concat([buffer, createSegBuf(seg)])
   }
 
   kcp.ackcount = 0
 
-  return offset
+  kcp.buffer = buffer
 }
 
 // @private
@@ -91,21 +89,20 @@ export function setProbe(kcp) {
 }
 
 // @private
-export function outputProbe(kcp, seg, offset, flag, cmd) {
-  const { buffer } = kcp
+export function outputProbe(kcp, seg, flag, cmd) {
+  let { buffer } = kcp
 
   if (kcp.probe & flag) {
     seg.cmd = cmd
-    if (offset + IKCP_OVERHEAD > kcp.mtu) {
-      output(kcp, buffer.slice(0, offset))
-      offset = 0
+    if (buffer.length + IKCP_OVERHEAD > kcp.mtu) {
+      output(kcp, buffer)
+      buffer = Buffer.allocUnsafe(0)
     }
 
-    encodeSeg(buffer, offset, seg)
-    offset += IKCP_OVERHEAD
+    buffer = Buffer.concat([buffer, createSegBuf(seg)])
   }
 
-  return offset
+  kcp.buffer = buffer
 }
 
 // @private
@@ -148,8 +145,10 @@ export function putQueueToBuf(kcp, cwnd) {
 }
 
 // @private
-export function outputBuf(kcp, wnd, offset, rtomin, resent) {
-  const { current, buffer } = kcp
+export function outputBuf(kcp, wnd, rtomin, resent) {
+  const { current } = kcp
+  let { buffer } = kcp
+
   const length = kcp.snd_buf.length
   let lost = 0
   let change = 0
@@ -194,17 +193,15 @@ export function outputBuf(kcp, wnd, offset, rtomin, resent) {
 
       const need = IKCP_OVERHEAD + segment.len
 
-      if (offset + need > kcp.mtu) {
-        output(kcp, buffer.slice(0, offset))
-        offset = 0
+      if (buffer.length + need > kcp.mtu) {
+        output(kcp, buffer)
+        buffer = Buffer.allocUnsafe(0)
       }
 
-      encodeSeg(buffer, offset, segment)
-      offset += IKCP_OVERHEAD
+      buffer = Buffer.concat([buffer, createSegBuf(segment)])
 
       if (segment.len > 0) {
-        segment.data.copy(buffer, offset, 0, segment.len)
-        offset += segment.len
+        buffer = Buffer.concat([buffer, segment.data])
       }
 
       if (segment.xmit >= kcp.dead_link) {
@@ -215,7 +212,7 @@ export function outputBuf(kcp, wnd, offset, rtomin, resent) {
     }
   }
 
-  return { offset, lost, change }
+  return { lost, change }
 }
 
 // @private
@@ -258,6 +255,7 @@ export function flush(kcp) {
   }
 
   const seg = createSegment()
+  kcp.buffer = Buffer.allocUnsafe(0)
 
   seg.conv = kcp.conv
   seg.cmd = IKCP_CMD_ACK
@@ -268,14 +266,12 @@ export function flush(kcp) {
   seg.sn = 0
   seg.ts = 0
 
-  let offset = 0
-
-  offset = outputAcks(kcp, seg, offset)
+  outputAcks(kcp, seg)
 
   setProbe(kcp)
 
-  offset = outputProbe(kcp, seg, offset, IKCP_ASK_SEND, IKCP_CMD_WASK)
-  offset = outputProbe(kcp, seg, offset, IKCP_ASK_TELL, IKCP_CMD_WINS)
+  outputProbe(kcp, seg, IKCP_ASK_SEND, IKCP_CMD_WASK)
+  outputProbe(kcp, seg, IKCP_ASK_TELL, IKCP_CMD_WINS)
 
   kcp.probe = 0
 
@@ -291,12 +287,11 @@ export function flush(kcp) {
   const resent = kcp.fastresend > 0 ? kcp.fastresend : Infinity
   const rtomin = kcp.nodelay === 0 ? kcp.rx_rto >> 3 : 0
 
-  const res = outputBuf(kcp, seg.wnd, offset, rtomin, resent)
+  const res = outputBuf(kcp, seg.wnd, rtomin, resent)
   const { lost, change } = res
-  offset = res.offset
 
-  if (offset > 0) {
-    output(kcp, kcp.buffer.slice(0, offset))
+  if (kcp.buffer.length > 0) {
+    output(kcp, kcp.buffer)
   }
 
   setCwnd(kcp, change, lost, cwnd, resent)

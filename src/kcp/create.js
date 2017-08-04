@@ -75,8 +75,6 @@ export function create(conv, user) {
   const instance = Object.assign({}, DEFAULT_KCPCB, {
     conv,
     user,
-    buffer: Buffer.allocUnsafe(DEFAULT_KCPCB.mtu + IKCP_OVERHEAD),
-    // buffer: Buffer.allocUnsafe((DEFAULT_KCPCB.mtu + IKCP_OVERHEAD) * 3),
     snd_queue: [],
     rcv_queue: [],
     snd_buf: [],

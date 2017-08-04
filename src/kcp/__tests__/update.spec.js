@@ -5,7 +5,7 @@ import {
   outputProbe,
   setProbe,
   outputAcks,
-  encodeSeg,
+  createSegBuf,
   updateAndFlush,
   check,
 } from '../update'
@@ -145,7 +145,7 @@ describe('update.js', () => {
     })
   })
 
-  describe('encodeSeg', () => {
+  describe('createSegBuf', () => {
     let buffer
     let seg
 
@@ -163,21 +163,9 @@ describe('update.js', () => {
     })
 
     it('should append segment info to the buffer', () => {
-      encodeSeg(buffer, 0, seg)
+      const buffer = createSegBuf(seg)
       expect(buffer.slice(0, IKCP_OVERHEAD).toString('hex')).toBe(
         '000000015402000300000006000000050000000200000009',
-      )
-    })
-
-    it('should', () => {
-      buffer = Buffer.concat([
-        Buffer.from('000000015402000300000006000000050000000200000009', 'hex'),
-        Buffer.from('000000000000000000000000000000000000000000000000', 'hex'),
-      ])
-
-      encodeSeg(buffer, IKCP_OVERHEAD, seg)
-      expect(buffer.slice(0, 2 * IKCP_OVERHEAD).toString('hex')).toBe(
-        '000000015402000300000006000000050000000200000009000000015402000300000006000000050000000200000009',
       )
     })
   })
