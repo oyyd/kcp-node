@@ -145,12 +145,6 @@ export function parseData(kcp, newseg) {
   kcp.rcv_queue = kcp.rcv_queue.concat(trans)
   kcp.nrcv_que += i
   kcp.rcv_nxt += i
-
-  // if (kcp.user === 1) {
-  //   console.log('kcp.rcv_queue', kcp.rcv_queue.map(item => item.sn))
-  //   console.log('kcp.nrcv_que', kcp.nrcv_que)
-  //   console.log('kcp.rcv_nxt', kcp.rcv_nxt)
-  // }
 }
 
 // @private

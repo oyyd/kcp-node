@@ -150,11 +150,11 @@ export class KCPSocket extends Duplex {
   }
 
   // NOTE: now we only accept buffer
-  _write(chunk, encoding, callback) {
+  _write(buffer, encoding, callback) {
     const { kcp } = this
 
     // TODO: handle error
-    const res = send(kcp, chunk)
+    const res = send(kcp, buffer)
     let err = null
 
     if (res !== 0) {

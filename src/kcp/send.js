@@ -29,7 +29,6 @@ export function appendToSeg(kcp, buffer, len) {
 export function send(kcp, buffer) {
   let len = buffer.length
   let offset = 0
-  // let seg
 
   if (len < 0) {
     return -1

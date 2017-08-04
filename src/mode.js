@@ -1,3 +1,4 @@
+// TODO: open stream
 import { setOptions } from './kcp'
 
 const NAMES = [
