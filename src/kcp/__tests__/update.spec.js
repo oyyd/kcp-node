@@ -410,7 +410,7 @@ describe('update.js', () => {
       expect(lost).toBe(1)
       expect(change).toBe(0)
       expect(kcp.buffer.slice(0, IKCP_OVERHEAD + bufEle.len).toString('hex'))
-        .toBe('00000000000000000000000000000000000000000000000000000000000000000000000000000000')
+        .toBe('00000000000000035bb0660c00000003000000000000001011111111111111111111111111111111')
     })
 
     it('should not add rto if the `fastack` is smaller than the `resent`', () => {
@@ -447,8 +447,7 @@ describe('update.js', () => {
       expect(bufEle.resendts).toBe(current + 1000)
       expect(lost).toBe(0)
       expect(change).toBe(0)
-      expect(kcp.buffer.slice(0, IKCP_OVERHEAD + bufEle.len).toString('hex'))
-        .toBe('00000000000000000000000000000000000000000000000000000000000000000000000000000000')
+      expect(kcp.buffer.length).toBe(0)
     })
   })
 

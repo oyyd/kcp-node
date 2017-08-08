@@ -212,6 +212,8 @@ export function outputBuf(kcp, wnd, rtomin, resent) {
     }
   }
 
+  kcp.buffer = buffer
+
   return { lost, change }
 }
 
