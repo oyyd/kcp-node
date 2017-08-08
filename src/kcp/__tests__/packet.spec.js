@@ -59,7 +59,7 @@ describe('integration test', () => {
     setWndSize(kcp2, 128, 128)
   })
 
-  it('should send two packet from a kcp and receive them from the other kcp', () => {
+  it.only('should send two packet from a kcp and receive them from the other kcp', () => {
     const current = getCurrent()
     // const size = data.length
     expect(send(kcp1, data)).toBe(0)
@@ -69,6 +69,7 @@ describe('integration test', () => {
     // kcp.cwnv is 1
     update(kcp1, current + 120)
 
+    console.log('kcp1', kcp1)
     expect(output.mock.calls.length).toBe(1)
     const buf = output.mock.calls[0][0]
 

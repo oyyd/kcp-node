@@ -146,11 +146,9 @@ describe('update.js', () => {
   })
 
   describe('createSegBuf', () => {
-    let buffer
     let seg
 
     beforeEach(() => {
-      buffer = Buffer.alloc(IKCP_OVERHEAD * 3)
       seg = createSegment()
       seg.conv = 1
       seg.cmd = 84
@@ -160,6 +158,7 @@ describe('update.js', () => {
       seg.len = 9
       seg.sn = 5
       seg.ts = 6
+      kcp.buffer = Buffer.alloc(0)
     })
 
     it('should append segment info to the buffer', () => {
@@ -180,10 +179,12 @@ describe('update.js', () => {
       seg = createSeg(kcp)
 
       current = 1448256732
-      output = jest.fn(buffer => (lasterBufferString = buffer.toString('hex')))
+      output = jest.fn((buffer) => {
+        lasterBufferString = buffer.toString('hex')
+      })
       kcp.output = output
       kcp.mtu = IKCP_OVERHEAD * 3
-      kcp.buffer = Buffer.alloc(kcp.mtu)
+      kcp.buffer = Buffer.alloc(0)
       kcp.acklist = [1, current + 10, 2, current + 20, 3, current + 30]
       kcp.ackcount = kcp.acklist.length / 2
     })
@@ -204,7 +205,7 @@ describe('update.js', () => {
 
       expect(kcp.ackcount).toBe(0)
       expect(kcp.buffer.toString('hex')).toBe(
-        '00000000520000205652a4fa00000003000000000000000000000000520000205652a4f0000000020000000000000000000000000000000000000000000000000000000000000000',
+        '00000000520000205652a4fa000000030000000000000000',
       )
       expect(output.mock.calls.length).toBe(1)
       expect(lasterBufferString).toBe(
@@ -260,42 +261,44 @@ describe('update.js', () => {
 
     it('should do nothing if it dont probe', () => {
       kcp.probe = 0
-      kcp.buffer = Buffer.alloc(IKCP_OVERHEAD * 2)
+      kcp.buffer = Buffer.alloc(0)
 
-      outputProbe(kcp, seg, IKCP_OVERHEAD, IKCP_ASK_SEND, IKCP_CMD_WASK)
+      outputProbe(kcp, seg, IKCP_ASK_SEND, IKCP_CMD_WASK)
 
       expect(kcp.buffer.toString('hex')).toBe(
-        '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+        '',
       )
     })
 
     it('should put a segment to buffer if the kcp.probe support IKCP_ASK_SEND', () => {
       kcp.probe |= IKCP_ASK_SEND
 
-      kcp.buffer = Buffer.alloc(IKCP_OVERHEAD * 2)
+      kcp.buffer = Buffer.alloc(0)
 
-      outputProbe(kcp, seg, IKCP_OVERHEAD, IKCP_ASK_SEND, IKCP_CMD_WASK)
+      outputProbe(kcp, seg, IKCP_ASK_SEND, IKCP_CMD_WASK)
 
       expect(kcp.buffer.toString('hex')).toBe(
-        '000000000000000000000000000000000000000000000000000000005300002000000000000000000000000000000000',
+        '000000005300002000000000000000000000000000000000',
       )
     })
 
     it("should call output if if's over a mtu", () => {
       let lasterBufferString = ''
       kcp.mtu = IKCP_OVERHEAD * 2
-      kcp.output = jest.fn(buf => (lasterBufferString = buf.toString('hex')))
+      kcp.output = jest.fn((buf) => {
+        lasterBufferString = buf.toString('hex')
+      })
       kcp.probe |= IKCP_ASK_SEND
 
-      kcp.buffer = Buffer.alloc(IKCP_OVERHEAD * 2)
+      kcp.buffer = Buffer.alloc(IKCP_OVERHEAD + 1)
 
-      outputProbe(kcp, seg, IKCP_OVERHEAD + 1, IKCP_ASK_SEND, IKCP_CMD_WASK)
+      outputProbe(kcp, seg, IKCP_ASK_SEND, IKCP_CMD_WASK)
 
       expect(lasterBufferString).toBe(
         '00000000000000000000000000000000000000000000000000',
       )
       expect(kcp.buffer.toString('hex')).toBe(
-        '000000005300002000000000000000000000000000000000000000000000000000000000000000000000000000000000',
+        '000000005300002000000000000000000000000000000000',
       )
     })
   })
@@ -341,12 +344,10 @@ describe('update.js', () => {
     let next
     let rtomin
     let resent
-    let offset
     let current
 
     beforeEach(() => {
       current = 1538287116
-      offset = 0
       rtomin = 100
       resent = 100
       cwnd = 3
@@ -362,17 +363,16 @@ describe('update.js', () => {
         data: Buffer.from('11111111111111111111111111111111', 'hex'),
         len: 16,
       }]
-      kcp.buffer = Buffer.alloc((IKCP_OVERHEAD + 1400) * 3)
+      kcp.buffer = Buffer.alloc(0)
     })
 
     it('should set initial `rto` and `resendts` if `xmit` is 0', () => {
-      const { offset: off, lost, change } = outputBuf(kcp, cwnd, offset, rtomin, resent)
+      const { lost, change } = outputBuf(kcp, cwnd, rtomin, resent)
 
       const bufEle = kcp.snd_buf[0]
       expect(bufEle.xmit).toBe(1)
       expect(bufEle.rto).toBe(100)
       expect(bufEle.resendts).toBe(current + 100 + 100)
-      expect(off).toBe(bufEle.len + IKCP_OVERHEAD)
       expect(lost).toBe(0)
       expect(change).toBe(0)
     })
@@ -383,13 +383,12 @@ describe('update.js', () => {
       kcp.snd_buf[0].rto = 100
       kcp.snd_buf[0].resendts = current - 10
 
-      const { offset: off, lost, change } = outputBuf(kcp, cwnd, offset, rtomin, resent)
+      const { lost, change } = outputBuf(kcp, cwnd, rtomin, resent)
 
       const bufEle = kcp.snd_buf[0]
       expect(bufEle.xmit).toBe(2)
       expect(bufEle.rto).toBe(200)
       expect(bufEle.resendts).toBe(current + 200)
-      expect(off).toBe(bufEle.len + IKCP_OVERHEAD)
       expect(lost).toBe(1)
       expect(change).toBe(0)
     })
@@ -400,7 +399,7 @@ describe('update.js', () => {
       kcp.snd_buf[0].rto = 100
       kcp.snd_buf[0].resendts = current - 10
 
-      const { offset: off, lost, change } = outputBuf(kcp, cwnd, offset, rtomin, resent)
+      const { lost, change } = outputBuf(kcp, cwnd, rtomin, resent)
 
       const bufEle = kcp.snd_buf[0]
       expect(bufEle.xmit).toBe(2)
@@ -408,11 +407,10 @@ describe('update.js', () => {
       expect(bufEle.resendts).toBe(current + 150)
       expect(bufEle.ts).toBe(current)
       expect(bufEle.wnd).toBe(cwnd)
-      expect(off).toBe(bufEle.len + IKCP_OVERHEAD)
       expect(lost).toBe(1)
       expect(change).toBe(0)
       expect(kcp.buffer.slice(0, IKCP_OVERHEAD + bufEle.len).toString('hex'))
-        .toBe('00000000000000035bb0660c00000003000000000000001011111111111111111111111111111111')
+        .toBe('00000000000000000000000000000000000000000000000000000000000000000000000000000000')
     })
 
     it('should not add rto if the `fastack` is smaller than the `resent`', () => {
@@ -423,13 +421,12 @@ describe('update.js', () => {
       kcp.snd_buf[0].rto = 100
       kcp.snd_buf[0].resendts = current + 1000
 
-      const { offset: off, lost, change } = outputBuf(kcp, cwnd, offset, rtomin, resent)
+      const { lost, change } = outputBuf(kcp, cwnd, rtomin, resent)
 
       const bufEle = kcp.snd_buf[0]
       expect(bufEle.xmit).toBe(2)
       expect(bufEle.rto).toBe(100)
       expect(bufEle.resendts).toBe(current + 100)
-      expect(off).toBe(bufEle.len + IKCP_OVERHEAD)
       expect(lost).toBe(0)
       expect(change).toBe(1)
     })
@@ -442,13 +439,12 @@ describe('update.js', () => {
       kcp.snd_buf[0].rto = 100
       kcp.snd_buf[0].resendts = current + 1000
 
-      const { offset: off, lost, change } = outputBuf(kcp, cwnd, offset, rtomin, resent)
+      const { lost, change } = outputBuf(kcp, cwnd, rtomin, resent)
 
       const bufEle = kcp.snd_buf[0]
       expect(bufEle.xmit).toBe(1)
       expect(bufEle.rto).toBe(100)
       expect(bufEle.resendts).toBe(current + 1000)
-      expect(off).toBe(0)
       expect(lost).toBe(0)
       expect(change).toBe(0)
       expect(kcp.buffer.slice(0, IKCP_OVERHEAD + bufEle.len).toString('hex'))
