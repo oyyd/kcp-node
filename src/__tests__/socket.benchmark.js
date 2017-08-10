@@ -8,7 +8,7 @@ import { createPool } from '../pool'
 
 const localPort = 23456
 
-const DATA_SIZE = 2048
+const DATA_SIZE = 1024 * 50
 const TIMES = 1
 
 const testKCPSocket = () => new Promise((resolve) => {
@@ -24,9 +24,13 @@ const testKCPSocket = () => new Promise((resolve) => {
     remotePort: localPort,
   })
 
+  let connection = null
+
   server.on('connection', (conn) => {
+    connection = conn
+    conn.on('error', err => console.error('conn', err))
     conn.on('data', (msg) => {
-      // console.log('conn', msg)
+      console.log('conn', msg)
       if (msg) {
         conn.write(msg)
       }
@@ -39,7 +43,7 @@ const testKCPSocket = () => new Promise((resolve) => {
   let date
 
   socket.on('data', (msg) => {
-    // console.log('msg', msg)
+    console.log('msg', msg)
     if (msg) {
       received += msg.length
       if (received >= DATA_SIZE) {
@@ -56,17 +60,24 @@ const testKCPSocket = () => new Promise((resolve) => {
     }
   })
 
+  socket.on('error', err => console.error(err))
+
   date = Date.now()
 
   for (let i = 0; i < TIMES; i += 1) {
     socket.write(Buffer.alloc(DATA_SIZE, '00', 'hex'))
   }
+
+  // setTimeout(() => {
+  //   console.log('kcp1', socket.kcp)
+  //   console.log('kcp2', connection.kcp)
+  // }, 1000)
 })
 
 const testTCP = () => new Promise((resolve) => {
   const server = net.createServer((conn) => {
     conn.on('data', (d) => {
-      console.log('d', d)
+      // console.log('d', d)
 
       conn.write(d)
     })

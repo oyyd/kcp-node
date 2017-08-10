@@ -327,6 +327,7 @@ describe('update.js', () => {
 
     it('should put segs from `snd_queue` to `snd_buf`', () => {
       const cwnd = 2
+      // TODO:
       putQueueToBuf(kcp, cwnd)
 
       expect(kcp.snd_queue.length).toBe(1)

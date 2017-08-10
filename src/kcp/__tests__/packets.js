@@ -149,9 +149,9 @@ function test(mode) {
 }
 
 function main() {
-  test(0)
+  // test(0)
   // test(1)
-  // test(2)
+  test(2)
 }
 
 main()

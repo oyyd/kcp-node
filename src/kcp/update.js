@@ -1,13 +1,13 @@
 import {
   IKCP_THRESH_MIN,
-  IKCP_CMD_PUSH,
   IKCP_ASK_TELL,
+  IKCP_CMD_PUSH,
   IKCP_CMD_WINS,
   IKCP_CMD_WASK,
+  IKCP_CMD_ACK,
   IKCP_ASK_SEND,
   IKCP_PROBE_LIMIT,
   IKCP_PROBE_INIT,
-  IKCP_CMD_ACK,
   IKCP_OVERHEAD,
   createSegment,
 } from './create'
@@ -41,6 +41,10 @@ export function createSegBuf(seg) {
 // @private
 export function outputAcks(kcp, seg) {
   let buffer = kcp.buffer
+
+  if (kcp.user !== 'socket') {
+    console.log('outputAcks_wndd', kcp.nrcv_que, kcp.rcv_wnd)
+  }
 
   const count = kcp.ackcount
   let i = 0
@@ -106,12 +110,16 @@ export function outputProbe(kcp, seg, flag, cmd) {
 }
 
 // @private
-export function putQueueToBuf(kcp, cwnd) {
+export function putQueueToBuf(kcp, cwnd, wnd) {
   // NOTE: put data from snd_queue to snd_buf
   // and then send them
   const rest = kcp.snd_una + cwnd - kcp.snd_nxt
-  // console.log('rest', kcp.user, `rest: ${rest} = snd_una: ${kcp.snd_una}
-  // + cwnd: ${cwnd} - snd_nxt: ${kcp.snd_nxt}`)
+
+  if (kcp.user === 'socket') {
+    console.log('wnd', wnd)
+    console.log('rest', kcp.user, `rest: ${rest} = snd_una: ${kcp.snd_una}
+    + cwnd: ${cwnd} - snd_nxt: ${kcp.snd_nxt}`)
+  }
 
   if (rest <= 0) {
     return
@@ -124,7 +132,7 @@ export function putQueueToBuf(kcp, cwnd) {
 
     seg.conv = kcp.conv
     seg.cmd = IKCP_CMD_PUSH
-    seg.wnd = seg.wnd
+    seg.wnd = wnd
     seg.ts = kcp.current
     // where `sn` decided
     seg.sn = kcp.snd_nxt + i
@@ -279,12 +287,20 @@ export function flush(kcp) {
 
   let cwnd = Math.min(kcp.snd_wnd, kcp.rmt_wnd)
 
+  if (kcp.user === 'socket') {
+    console.log('cwnd', cwnd, kcp.snd_wnd, kcp.rmt_wnd)
+  }
+
   // do not controlled by the tcp cwnd
   if (kcp.nocwnd === 0) {
     cwnd = Math.min(kcp.cwnd, cwnd)
   }
 
-  putQueueToBuf(kcp, cwnd)
+  if (kcp.user === 'socket') {
+    console.log('cwnd', kcp.cwnd, kcp.nocwnd)
+  }
+
+  putQueueToBuf(kcp, cwnd, seg.wnd)
 
   const resent = kcp.fastresend > 0 ? kcp.fastresend : Infinity
   const rtomin = kcp.nodelay === 0 ? kcp.rx_rto >> 3 : 0

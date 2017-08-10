@@ -287,6 +287,7 @@ export function input(kcp, buffer) {
     }
 
     kcp.rmt_wnd = wnd
+    // TODO: duplicate, ack
     parseUna(kcp, una)
     shrinkBuf(kcp)
 

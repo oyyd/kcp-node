@@ -6,6 +6,7 @@
 import { Duplex } from 'stream'
 import { defaultUpdater } from './updater'
 import {
+  IKCP_OVERHEAD,
   create as createKCP,
   setOutput,
   input,
@@ -62,6 +63,9 @@ export class KCPSocket extends Duplex {
     }
 
     setOutput(this.kcp, data => {
+      // if (user !== 'socket') {
+      //   console.log('output', data.length / IKCP_OVERHEAD, data.toString('hex'))
+      // }
       this.pool.send(data, this.remotePort, this.remoteAddr)
     })
 
@@ -105,6 +109,8 @@ export class KCPSocket extends Duplex {
 
   onMessage({ conv, data }) {
     if (conv === this.conv) {
+      // console.log('onMessage', this.user, data)
+      // TODO: check response code
       input(this.kcp, data)
       this.tryToPush()
       this.resetTimeout()
@@ -155,10 +161,11 @@ export class KCPSocket extends Duplex {
 
     // TODO: handle error
     const res = send(kcp, buffer)
+
     let err = null
 
     if (res !== 0) {
-      err = new Error(`invalid write ${res}`)
+      err = new Error(`invalid write: ${res}`)
     }
 
     callback(err)

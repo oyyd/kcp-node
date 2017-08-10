@@ -86,6 +86,9 @@ export function recv(kcp) {
   peeksize = getPeeksize(kcp)
 
   if (peeksize < 0) {
+    // console.log('EN1', kcp.nrcv_que, kcp.rcv_queue.length)
+    // console.log('EN2', kcp.nrcv_buf, kcp.rcv_buf.length)
+    // console.log('EN3', kcp.rcv_nxt, kcp.rcv_wnd)
     return -2
   }
 
