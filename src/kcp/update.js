@@ -42,9 +42,9 @@ export function createSegBuf(seg) {
 export function outputAcks(kcp, seg) {
   let buffer = kcp.buffer
 
-  if (kcp.user !== 'socket') {
-    console.log('outputAcks_wndd', kcp.nrcv_que, kcp.rcv_wnd)
-  }
+  // if (kcp.user !== 'socket') {
+  //   console.log('outputAcks_wndd', kcp.nrcv_que, kcp.rcv_wnd)
+  // }
 
   const count = kcp.ackcount
   let i = 0
@@ -115,11 +115,11 @@ export function putQueueToBuf(kcp, cwnd, wnd) {
   // and then send them
   const rest = kcp.snd_una + cwnd - kcp.snd_nxt
 
-  if (kcp.user === 'socket') {
-    console.log('wnd', wnd)
-    console.log('rest', kcp.user, `rest: ${rest} = snd_una: ${kcp.snd_una}
-    + cwnd: ${cwnd} - snd_nxt: ${kcp.snd_nxt}`)
-  }
+  // if (kcp.user === 'socket') {
+  //   console.log('wnd', wnd)
+  //   console.log('rest', kcp.user, `rest: ${rest} = snd_una: ${kcp.snd_una}
+  //   + cwnd: ${cwnd} - snd_nxt: ${kcp.snd_nxt}`)
+  // }
 
   if (rest <= 0) {
     return
@@ -287,18 +287,18 @@ export function flush(kcp) {
 
   let cwnd = Math.min(kcp.snd_wnd, kcp.rmt_wnd)
 
-  if (kcp.user === 'socket') {
-    console.log('cwnd', cwnd, kcp.snd_wnd, kcp.rmt_wnd)
-  }
+  // if (kcp.user === 'socket') {
+  //   console.log('cwnd', cwnd, kcp.snd_wnd, kcp.rmt_wnd)
+  // }
 
   // do not controlled by the tcp cwnd
   if (kcp.nocwnd === 0) {
     cwnd = Math.min(kcp.cwnd, cwnd)
   }
 
-  if (kcp.user === 'socket') {
-    console.log('cwnd', kcp.cwnd, kcp.nocwnd)
-  }
+  // if (kcp.user === 'socket') {
+  //   console.log('cwnd', kcp.cwnd, kcp.nocwnd)
+  // }
 
   putQueueToBuf(kcp, cwnd, seg.wnd)
 

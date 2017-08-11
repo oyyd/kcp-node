@@ -23,12 +23,20 @@ describe('server.js', () => {
         localPort: serverPort,
       })
 
+      let length = 0
+      let received = Buffer.alloc(0)
+
       server.on('connection', socket => {
         socket.on('data', (d) => {
-          expect(d.toString('hex')).toBe(data.toString('hex'))
-          socket.close()
-          server.close()
-          done()
+          length += d.length
+          received = Buffer.concat([received, d])
+
+          if (length === data.length) {
+            expect(received.toString('hex')).toBe(data.toString('hex'))
+            socket.close()
+            server.close()
+            done()
+          }
         })
       })
 

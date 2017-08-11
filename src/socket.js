@@ -6,7 +6,7 @@
 import { Duplex } from 'stream'
 import { defaultUpdater } from './updater'
 import {
-  IKCP_OVERHEAD,
+  // IKCP_OVERHEAD,
   create as createKCP,
   setOutput,
   input,
@@ -15,10 +15,12 @@ import {
   check as checkKCP,
   update as updateKCP,
   setMtu,
+  setWndSize,
 } from './kcp'
 import { setKCPMode } from './mode'
 
 const DEFAULT_TIMEOUT = 10000
+const DEFAULT_WND_SIZE = 128
 
 export class KCPSocket extends Duplex {
   constructor(duplexOptions, socketOptions) {
@@ -37,6 +39,8 @@ export class KCPSocket extends Duplex {
       user = 'socket',
       // optional
       timeout,
+      // optional
+      mode,
     } = socketOptions
 
     this.allowPush = false
@@ -54,7 +58,8 @@ export class KCPSocket extends Duplex {
     // init kcp
     this.kcp = createKCP(this.conv, user)
     this.onMessage = this.onMessage.bind(this)
-    setKCPMode(this.kcp)
+    setWndSize(this.kcp, DEFAULT_WND_SIZE, DEFAULT_WND_SIZE)
+    setKCPMode(this.kcp, mode)
     setMtu(this.kcp, this.pool.kcpMTUSize)
 
     // bind kcp
@@ -155,17 +160,19 @@ export class KCPSocket extends Duplex {
     }
   }
 
-  // NOTE: now we only accept buffer
+  // NOTE: we only accept buffer currently
   _write(buffer, encoding, callback) {
     const { kcp } = this
-
-    // TODO: handle error
-    const res = send(kcp, buffer)
-
+    const times = Math.ceil(buffer.length / kcp.mss)
     let err = null
 
-    if (res !== 0) {
-      err = new Error(`invalid write: ${res}`)
+    // TODO: disable `frg` would be much more efficient
+    for (let i = 0; i < times; i += 1) {
+      const res = send(kcp, buffer.slice(kcp.mss * i, kcp.mss * (i + 1)))
+      if (res !== 0) {
+        err = new Error(`invalid write: ${res}`)
+        break
+      }
     }
 
     callback(err)

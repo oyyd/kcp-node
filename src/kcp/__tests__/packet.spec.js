@@ -59,7 +59,7 @@ describe('integration test', () => {
     setWndSize(kcp2, 128, 128)
   })
 
-  it.only('should send two packet from a kcp and receive them from the other kcp', () => {
+  it('should send two packet from a kcp and receive them from the other kcp', () => {
     const current = getCurrent()
     // const size = data.length
     expect(send(kcp1, data)).toBe(0)
