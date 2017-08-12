@@ -1,3 +1,5 @@
+// TODO: use stream buffer
+// TODO: why one packet per loop?
 import { NetworkSimulator } from './network_simulator'
 import { IKCP_OVERHEAD, IKCP_DEADLINK } from '../create'
 import {
@@ -11,25 +13,33 @@ import {
   getCurrent,
   update,
 } from '../index'
-import { decode, decodeBufs } from './utils'
+import { decodeBufs } from './utils'
+
+function sendByPackets(kcp, data) {
+  const times = Math.ceil(data.length / kcp.mss)
+
+  for (let i = 0; i < times; i += 1) {
+    send(kcp, data.slice(i * kcp.mss, (i + 1) * kcp.mss))
+  }
+}
+
+function recvAll(kcp) {
+  let data = Buffer.alloc(0)
+  let b = recv(kcp, true)
+
+  while (b !== -1 && b !== -2) {
+    data = Buffer.concat([data, b])
+    b = recv(kcp, true)
+  }
+
+  return data
+}
 
 function getTimeBufString(time) {
   const buf = Buffer.alloc(4)
   buf.writeUInt32BE(time)
 
   return buf.toString('hex')
-}
-
-function getAllPackets(network, peer, current) {
-  const packets = []
-  let d = network.recv(1, current)
-
-  while (Buffer.isBuffer(d)) {
-    packets.push(d)
-    d = network.recv(1, current)
-  }
-
-  return packets
 }
 
 describe('integration test', () => {
@@ -57,6 +67,93 @@ describe('integration test', () => {
     setOutput(kcp2, output)
     setWndSize(kcp1, 128, 128)
     setWndSize(kcp2, 128, 128)
+  })
+
+  it('should transmit large buffer', (done) => {
+    const p0 = Date.now()
+    const size = 4 * 1024 * 1024
+    data = Buffer.alloc(size, '11', 'hex')
+    network = new NetworkSimulator(0, 1, 1)
+
+    // eslint-disable-next-line
+    output = jest.fn((buf, kcp, user) => {
+      // eslint-disable-next-line
+      return network.send(user, buf, true)
+    })
+
+    kcp1 = create(1, 0)
+    kcp2 = create(1, 1)
+
+    setOutput(kcp1, output)
+    setOutput(kcp2, output)
+    setNodelay(kcp1, 1, 10, 0, 1)
+    setNodelay(kcp2, 1, 10, 0, 1)
+    setWndSize(kcp1, 4096, 4096)
+    setWndSize(kcp2, 4096, 4096)
+
+    let received = 0
+
+    const loop = () => {
+      const current = getCurrent()
+      let d
+
+      d = network.recv(1, current)
+
+      if (typeof d !== 'number') {
+        console.log(Date.now() - p0)
+        console.log('kcp2_input', d.length, 'packets', decodeBufs(d).length)
+        input(kcp2, d)
+        console.log('end', Date.now() - p0)
+      }
+
+      d = recvAll(kcp2)
+
+      if (typeof d !== 'number') {
+        console.log(Date.now() - p0)
+        console.log('kcp2_send', d.length)
+        // console.log('kcp2', kcp2)
+        sendByPackets(kcp2, d)
+        console.log('end', Date.now() - p0)
+      }
+
+      update(kcp2, current)
+
+      d = network.recv(0, current)
+
+      if (typeof d !== 'number') {
+        console.log(Date.now() - p0)
+        console.log('kcp1_input', d.length, 'packets', decodeBufs(d).length)
+        input(kcp1, d)
+        console.log('end', Date.now() - p0)
+      }
+
+      d = recvAll(kcp1)
+
+      if (typeof d !== 'number') {
+        // console.log('get echo', d)
+        received += d.length
+
+        console.log(Date.now() - p0)
+        console.log('received', d.length, received)
+
+        if (received > 4000000) {
+          console.log('size', size)
+          console.log(kcp1.snd_buf.filter(i => i.xmit === 2).length, kcp2.snd_buf.filter(i => i.xmit === 2).length)
+        }
+
+        if (received === size) {
+          done()
+        }
+      }
+
+      update(kcp1, current)
+    }
+
+    setInterval(() => {
+      process.nextTick(loop)
+    }, 10)
+
+    sendByPackets(kcp1, data)
   })
 
   it('should send two packet from a kcp and receive them from the other kcp', () => {
@@ -148,10 +245,8 @@ describe('integration test', () => {
     current = kcp1.snd_buf[0].resendts
     update(kcp1, current)
 
-    const packets = getAllPackets(network, 1, current)
-    expect(packets.length).toBe(2)
-    expect(packets.map(item => decode(item).sn)).toEqual([0, 1])
-    expect(input(kcp2, Buffer.concat(packets))).toBe(0)
+    const buffer = network.recv(1, current)
+    expect(input(kcp2, buffer)).toBe(0)
 
     d = recv(kcp2)
 
@@ -187,9 +282,7 @@ describe('integration test', () => {
     update(kcp1, current)
 
     current += 40
-    const packets = getAllPackets(network, 1, current)
 
-    expect(packets.length).toBe(2)
     expect(kcp1.snd_buf[0].xmit).toBe(1)
     expect(kcp1.snd_buf[1].xmit).toBe(1)
     expect(kcp1.state).toBe(0)

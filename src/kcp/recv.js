@@ -38,12 +38,16 @@ export function getPeeksize(kcp) {
 }
 
 // @private
-export function popRcvContent(kcp) {
+export function popRcvContent(kcp, popAll) {
   let i = 0
 
-  for (; i < kcp.nrcv_que; i += 1) {
-    if (kcp.rcv_queue[i].frg === 0) {
-      break
+  if (popAll) {
+    i = kcp.nrcv_que
+  } else {
+    for (; i < kcp.nrcv_que; i += 1) {
+      if (kcp.rcv_queue[i].frg === 0) {
+        break
+      }
     }
   }
 
@@ -68,14 +72,14 @@ export function moveRcvBuf(kcp) {
 
   const rcvBufSlice = kcp.rcv_buf.splice(0, i)
   kcp.nrcv_buf -= i
-  kcp.rcv_queue.push(...rcvBufSlice)
+  kcp.rcv_queue = kcp.rcv_queue.concat(rcvBufSlice)
   kcp.nrcv_que += i
   kcp.rcv_nxt += i
 }
 
 // NOTE: the `buffer` is not a pointer
 // so we return a buffer directly
-export function recv(kcp) {
+export function recv(kcp, popAll = false) {
   let peeksize = 0
   let recover = 0
 
@@ -86,9 +90,6 @@ export function recv(kcp) {
   peeksize = getPeeksize(kcp)
 
   if (peeksize < 0) {
-    // console.log('EN1', kcp.nrcv_que, kcp.rcv_queue.length)
-    // console.log('EN2', kcp.nrcv_buf, kcp.rcv_buf.length)
-    // console.log('EN3', kcp.rcv_nxt, kcp.rcv_wnd)
     return -2
   }
 
@@ -96,7 +97,7 @@ export function recv(kcp) {
     recover = 1
   }
 
-  const buffer = popRcvContent(kcp)
+  const buffer = popRcvContent(kcp, popAll)
 
   moveRcvBuf(kcp)
 

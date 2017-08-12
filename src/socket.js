@@ -20,7 +20,7 @@ import {
 import { setKCPMode } from './mode'
 
 const DEFAULT_TIMEOUT = 10000
-const DEFAULT_WND_SIZE = 128
+const DEFAULT_WND_SIZE = 4096
 
 export class KCPSocket extends Duplex {
   constructor(duplexOptions, socketOptions) {
@@ -149,14 +149,15 @@ export class KCPSocket extends Duplex {
       return
     }
 
-    const d = recv(this.kcp)
+    let d = recv(this.kcp, true)
 
-    if (d === -1 || d === -2) {
-      return
-    }
+    while (!(d === -1 || d === -2)) {
+      if (!this.push(d)) {
+        this.allowPush = false
+        break
+      }
 
-    if (!this.push(d)) {
-      this.allowPush = false
+      d = recv(this.kcp, true)
     }
   }
 

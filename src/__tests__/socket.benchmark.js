@@ -46,6 +46,7 @@ const testKCPSocket = () => new Promise((resolve) => {
     // console.log('msg', msg)
     if (msg) {
       received += msg.length
+      console.log('msg.length', msg.length)
       if (received >= DATA_SIZE) {
         received -= DATA_SIZE
         count += 1
@@ -105,8 +106,8 @@ const testTCP = () => new Promise((resolve) => {
   })
 })
 
-testTCP()
+// testTCP()
 
-// testKCPSocket().catch(err => {
-//   throw err
-// })
+testKCPSocket().catch(err => {
+  throw err
+})

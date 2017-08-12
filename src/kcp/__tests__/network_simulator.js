@@ -14,8 +14,6 @@ export class NetworkSimulator {
     this.nmax = nmax
     this.tx1 = 0
     this.tx2 = 0
-    this.c12 = -1
-    this.c21 = -1
     this.p12 = []
     this.p21 = []
   }
@@ -24,7 +22,7 @@ export class NetworkSimulator {
     if (peer === 0) {
       this.tx1 += 1
       if (!norandom && (random100() < this.lostrate
-        || this.p12.length - this.c12 - 1 >= this.nmax)) {
+        || this.p12.length >= this.nmax)) {
         return
       }
     } else {
@@ -50,37 +48,33 @@ export class NetworkSimulator {
   }
 
   recv(peer, current = getCurrent()) {
-    if ((peer === 0 && this.c21 >= this.p21.length - 1)
-      || (peer === 1 && this.c12 >= this.p12.length - 1)) {
+    if ((peer === 0 && this.p21.length === 0)
+      || (peer === 1 && this.p12.length === 0)) {
       return -1
     }
 
-    const c12 = this.c12 + 1
-    const c21 = this.c21 + 1
+    const group = peer === 1 ? this.p12 : this.p21
+    const { length } = group
+    let i = 0
 
-    const packet = peer === 1 ? this.p12[c12] : this.p21[c21]
+    for (; i < length; i += 1) {
+      const packet = group[i]
 
-    if (current < packet.ts) {
+      if (current < packet.ts) {
+        break
+      }
+    }
+
+    if (i === 0) {
       return -2
     }
 
-    // if (peer === 0) {
-    //   console.log('c21', this.c21, c21)
-    // }
-
-    // NOTE: this condition should never be true
-    // if (maxsize < packet.size) {
-    //   return -3
-    // }
-
-    const { data: d } = packet
+    const d = Buffer.concat(group.slice(0, i).map(i => i.data))
 
     if (peer === 1) {
-      this.p12[this.c12] = null
-      this.c12 = c12
+      this.p12 = this.p12.slice(i)
     } else {
-      this.p21[this.c21] = null
-      this.c21 = c21
+      this.p21 = this.p21.slice(i)
     }
 
     return d
@@ -90,13 +84,11 @@ export class NetworkSimulator {
     if (peer === 0) {
       this.p21 = []
       this.tx1 = 0
-      this.c21 = -1
     }
 
     if (peer === 1) {
       this.p12 = []
       this.tx2 = 0
-      this.c12 = -1
     }
   }
 }
