@@ -94,6 +94,7 @@ describe('integration test', () => {
     let received = 0
 
     const loop = () => {
+      console.log('LOOP', Date.now() - p0)
       const current = getCurrent()
       let d
 
@@ -143,15 +144,18 @@ describe('integration test', () => {
 
         if (received === size) {
           done()
+          return
         }
       }
 
+      console.log('before update:', Date.now() - p0)
       update(kcp1, current)
+      console.log('after update:', Date.now() - p0)
+
+      setTimeout(loop)
     }
 
-    setInterval(() => {
-      process.nextTick(loop)
-    }, 10)
+    setInterval(loop, 0)
 
     sendByPackets(kcp1, data)
   })

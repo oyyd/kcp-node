@@ -12,8 +12,9 @@
     "test:travis": "jest --coverage && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
     "test:watch": "jest --watch",
     "test:single": "jest src/kcp/__tests__/packet.spec.js --watch",
+    "benchmark:udp": "node lib/__tests__/udp.benchmark.js",
     "benchmark:encrypt": "node lib/__tests__/encrypt.benchmark.js",
-    "benchmark:socket": "node lib/__tests__/socket.benchmark.js"
+    "benchmark:socket": "node --inspect-brk lib/__tests__/socket.benchmark.js"
   },
   "repository": {
     "type": "git",

@@ -45,10 +45,7 @@ class Updater {
 
     this.isUpdating = true
 
-    // TODO:
-    setTimeout(() => {
-      process.nextTick(this.updateTask)
-    }, 10)
+    setTimeout(this.updateTask, 0)
   }
 }
 

@@ -39,6 +39,10 @@ node 6+
 
 ## Performance and Benchmark
 
+```
+sudo sysctl net.inet.udp.recvspace=4194304
+```
+
 ## About Multiplexing
 
 - Data that comes later have to wait previous data to be transmited.
